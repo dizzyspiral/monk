@@ -193,4 +193,4 @@ def get_kernel_regs(thread=None):
     if not thread:
         thread = get_thread()
 
-    return ThreadInfo(thread).cpu_context.base
+    return ThreadInfo(thread).cpu_context

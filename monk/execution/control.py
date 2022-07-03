@@ -21,7 +21,7 @@ _callback_registries = {
     EVENT_EXECUTE: _on_execute_callbacks
 }
 
-def GdbeastControlError(Exception):
+class MonkControlError(Exception):
     pass
 
 def init(backend):
@@ -73,9 +73,28 @@ def _break_on_event(kind, addr, callback=None):
     """
     Sets a callback for an address, adding a breakpoint if one does not already exist.
     """
+    # What happens when callback=None with the RSP backend? Presumably in this case, the target 
+    # should just stop, instead of executing a callback...? The main thread has no good way to 
+    # detect this. Maybe we can make the add hook code block until the target stops if no callback
+    # is given?
+
     # XXX possible silent fail of global var write?
     logging.getLogger(__name__).debug("_break_on_event(%s, %s)" % (kind, hex(addr)))
-    cb_registry = _callback_registries[kind]
+
+    fail = False
+    
+    try:
+        cb_registry = _callback_registries[kind]
+    except:
+        fail = True
+
+    # We raise outside of the try-except above so that we don't end up with "exception while
+    # handling other exception" if this is uncaught by the caller. In practice, this should
+    # never happen because it's an internal function and we're only ever calling it with a
+    # "kind" that should be defined, but code changes, and assumptions don't always hold.
+    if fail:
+        raise MonkControlError("breakpoint kind '{}' not recognized".format(kind))
+
     cb_registry[addr].append(callback)
 
     # If this is the first callback added for this address, we need to add the breakpoint to the target
@@ -97,7 +116,7 @@ def _set_breakpoint(kind, addr):
     elif kind == EVENT_EXECUTE:
         _backend.set_exec_breakpoint(addr)
     else:
-        raise GdbeastControlError("breakpoint kind '{}' not recognized".format(kind))
+        raise MonkControlError("breakpoint kind '{}' not recognized".format(kind))
 
 def _del_breakpoint(kind, addr):
     if kind == EVENT_READ:
@@ -109,7 +128,7 @@ def _del_breakpoint(kind, addr):
     elif kind == EVENT_EXECUTE:
         _backend.del_exec_breakpoint(addr)
     else:
-        raise GdbeastControlError("breakpoint kind '{}' not recognized".format(kind))
+        raise MonkControlError("breakpoint kind '{}' not recognized".format(kind))
 
 # Signal handlers hooked into the backend signals notification functions
 def _on_read_dispatcher(addr):

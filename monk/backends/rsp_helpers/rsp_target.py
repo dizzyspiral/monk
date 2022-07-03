@@ -437,15 +437,31 @@ class RspTarget():
         self._rsp_lock.release()
 
     def remove_sw_breakpoint(self, addr):
+        """
+        Remove a software breakpoint.
+
+        :param int addr: the address of the breakpoint
+        :raises RspTargetError: if the target returns an error code
+        """
         self._rsp_lock.acquire()
         self._rsp.send(b'z0,%s,4' % hexaddr(addr))
         status = self._rsp.recv()
-        
-        if status and chr(status[0]) == 'E':
-            self._rsp_lock.release()
-            raise RspTargetError("Unable to remove software breakpoint: %s" % status)
-
         self._rsp_lock.release()
+
+        # In keeping with gdbstubs doing more or less whatever the heck they want, if removing
+        # a breakpoint results in an error from the target, it probably doesn't mean that removing
+        # the breakpoint actually failed. This is... neat, to say the least.
+        #
+        # I found some documentation on the internet that GDB apparently just ignores errors it
+        # gets from the target in basically all cases. I've made the decision to have this function
+        # raise the error, but at the backends/rsp.py interface I have it ignore the error. This makes
+        # it easy to propagate the errors up later if that seems wise.
+        # 
+        # If this becomes onerous, it's fine to just choose to ignore the error here. There are plenty
+        # of places in RspTarget where we *could* look for error codes and we don't, anyway.
+
+        if status and chr(status[0]) == 'E':
+            raise RspTargetError("Unable to remove software breakpoint: %s" % status)
 
     def remove_hw_breakpoint(self, addr):
         self._rsp_lock.acquire()

@@ -2,11 +2,10 @@ import socket
 import re
 import xml.etree.ElementTree as ET
 from queue import Queue
-#import asyncore
 import threading
 import selectors
 
-from monk.backends.rsp_helpers.rsp_target import RspTarget
+from monk.backends.rsp_helpers.rsp_target import RspTarget, RspTargetError
 
 _rsp_target = None  # After initialization, this is a GdbRsp object with a connection to the target
 
@@ -88,8 +87,11 @@ def del_access_breakpoint(addr):
     _rsp_target.remove_access_breakpoint(addr)
 
 def del_exec_breakpoint(addr):
-    _rsp_target.remove_sw_breakpoint(addr)
-#    _rsp_target.remove_hw_breakpoint(addr)
+    try:
+        _rsp_target.remove_sw_breakpoint(addr)
+    except RspTargetError:
+        # Sometimes the target returns an error even though it removed the breakpoint just fine. Ignore it.
+        pass
 
 # Stop events notification
 
