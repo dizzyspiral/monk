@@ -62,8 +62,24 @@ def remove_callback(cb):
     This is the same type of tuple returned by any of the break_on_* functions.
     """
     kind, addr, callback = cb
-    cb_registry = _callback_registries[kind]
-    cb_registry[addr].remove(callback)
+    logging.getLogger(__name__).debug("Removing callback '{}: {}'".format(kind, hex(addr)))
+    fail = False
+
+    try:
+        cb_registry = _callback_registries[kind]
+    except KeyError:
+        fail = True
+
+    if fail:
+        raise MonkControlError("callback kind '{}' not recognized".format(kind))
+
+    try:
+        cb_registry[addr].remove(callback)
+    except ValueError:
+        fail = True
+
+    if fail:
+        raise MonkControlError("no '{}' callback found for address '{}'".format(kind, addr))
    
     # If there are no more callbacks registered for this address, we need to remove the breakpoint
     if len(cb_registry[addr]) < 1:
@@ -158,4 +174,11 @@ def _callback_handler(callbacks):
 #        callback()
 
     logging.getLogger(__name__).debug("callbacks done.")
-#    run()
+
+    # This is an implementation detail of the RSP backend... All sw breakpoints get cleared by the gdbstub
+    # when the target stops. This makes it so that reading memory won't result in accidentally reading some breakpoint opcodes instead of the actual memory at that address. However, we have to set the breakpoints that
+    # got cleared again before re-starting the target, otherwise they're just gone, and all of our hooks
+    # are broken.
+    for addr in _on_execute_callbacks.keys():
+        if len(_on_execute_callbacks[addr]) > 0:
+            _set_breakpoint(EVENT_EXECUTE, addr)

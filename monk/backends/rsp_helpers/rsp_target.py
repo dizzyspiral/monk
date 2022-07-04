@@ -164,12 +164,15 @@ class RspTarget():
             # Call the appropriate event handler for the type of breakpoint encountered.
             # The event handlers are overridden by control.hooks 
             if bp_type == StopReasons.swbreak:
-                logging.getLogger(__name__).debug("got swbreak, resetting breakpoint")
+                # If the callback unsets the breakpoint for the current address, this will get set
+                self._callback_unset_bp = False
+                logging.getLogger(__name__).debug("got swbreak, removing breakpoint")
 
                 # Try to remove the breakpoint at the current address; if it fails, the target
                 # probably already removed it for us. We have to remove the breakpoint, step,
                 # and then set the breakpoint again because otherwise when we continue the target
                 # will immediately hit the breakpoint again without executing.
+                # TODO: We can remove this now, we don't set our breakpoints to persist w/ the stub.
                 try:
                     self.remove_sw_breakpoint(addr)
                 except RspTargetError:
@@ -177,20 +180,21 @@ class RspTarget():
 
                 logging.getLogger(__name__).debug("calling on_execute")
                 self.on_execute(addr)
+
+                # XXX The callback may have unset this breakpoint. We don't want to set it again
+                # in that case.
+                if not self._callback_unset_bp:
+                    logging.getLogger(__name__).debug("resetting breakpoint")
+                    # Step the target one instruction, then reset the breakpoint at the target address
+                    self.cmd_step()
+                    # Wait for the stop packet to arrive; if we try to send commands before the target
+                    # has stopped again, the target will ignore them.
+                    self._rsp.stop_queue.get(timeout=1)  # TODO: refactor, probably move to cmd_step
+                    self.set_sw_breakpoint(addr)
+
             else:
                 logging.getLogger(__name__).debug("unrecognized stop reason")
 
-            # Step the target one instruction, then reset the breakpoint at the target address
-            self.cmd_step()
-            # Wait for the stop packet to arrive; if we try to send commands before the target
-            # has stopped again, the target will ignore them.
-            self._rsp.stop_queue.get(timeout=1)  # TODO: refactor, probably move to cmd_step
-
-#            new_addr = self.read_register('pc')
-#            logging.getLogger(__name__).debug("new address after stepping: %s" % hex(new_addr))
-#            print("new address after stepping: %s" % hex(new_addr))
-
-            self.set_sw_breakpoint(addr)
             # Invoking continue here assumes that we'll never have a stop packet queued at this point.
             # We could check...
             self.cmd_continue()
@@ -443,10 +447,19 @@ class RspTarget():
         :param int addr: the address of the breakpoint
         :raises RspTargetError: if the target returns an error code
         """
+        logging.getLogger(__name__).debug("rsp_target.remove_sw_breakpoint: {}".format(hex(addr)))
         self._rsp_lock.acquire()
         self._rsp.send(b'z0,%s,4' % hexaddr(addr))
         status = self._rsp.recv()
         self._rsp_lock.release()
+
+        # If we're in a callback and we just unset the breakpoint at the current pc, we set
+        # a flag so that the event loop won't reset the current breakpoint before continuing
+        # target execution.
+        if threading.get_ident() != self._main_thread_id and \
+           threading.get_ident() != self._stop_events_thread.ident and \
+           addr == self.read_register('pc'):
+            self._callback_unset_bp = True
 
         # In keeping with gdbstubs doing more or less whatever the heck they want, if removing
         # a breakpoint results in an error from the target, it probably doesn't mean that removing
