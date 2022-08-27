@@ -9,6 +9,8 @@ import monk.execution.signals as signals
 from monk.backends.rsp_helpers.gdbrsp import GdbRsp
 from monk.utils.helpers import hexbyte, byte_order_int, hexaddr, hexval
 
+from monk.backends.rsp_helpers.regs.arm import reg_layout as arm_reg_layout, reg_map as arm_reg_map
+
 _gdbrsp = None  # After initialization, this is a GdbRsp object with a connection to the target
 
 
@@ -73,6 +75,8 @@ class RspTarget():
         self.cmd_stop()
         self._negotiate_features()
         self._reg_layout, self._reg_map = self._get_reg_layout()
+        # TODO: Fix automatic register layout parsing so this isn't hard-coded
+        self._reg_layout, self._reg_map = (arm_reg_layout, arm_reg_map)
 
         self._stop_events_thread.start()
 
@@ -238,18 +242,27 @@ class RspTarget():
         """
         raise_err = False
 
-        try:
-            regnum = self._reg_map[regname]
-        except KeyError:
-            raise_err = True
+        # if regname is an int, assume it's the int identifier of the register in the map
+        if type(regname) == int:
+            regnum = regname
+        else:
+            try:
+                regnum = self._reg_map[regname]
+            except KeyError:
+                raise_err = True
 
-        if raise_err:
-            raise RspTargetError("Unable to read register '%s': register unknown" % regname)
+            if raise_err:
+                raise RspTargetError("Unable to read register '%s': register unknown" % regname)
 
         self._rsp_lock.acquire()
         self._rsp.send(b'p%s' % hexbyte(regnum))
-        response = byte_order_int(self._rsp.recv())  # TODO: Timeouts for reads
+        response = self._rsp.recv()
         self._rsp_lock.release()
+
+        if _is_error_reply(response):
+            raise RspTargetError("Unable to read register '{}' with index {}, received error '{}'".format(regname, regnum, response))
+
+        response = byte_order_int(response)  # TODO: Timeouts for reads
 
         return response
 
@@ -526,7 +539,16 @@ class RspTarget():
         list of (regname, regsize) tuples. This uses a list of tuples because 
         order matters - the order the registers are listed in is the order in which 
         they are represented in queries to the gdbstub to get the register values.
+
+        This method does not properly order all of the registers. The meaning of the XML files
+        and each register's associated index is an internal GDB implementation detail. To 
+        support arbitrary machines, we'll have to RE how GDB maps the XML files to the register
+        layout. For now... I've hardcoded the ARM register layout.
+
+        :rtype: tuple
+        :return: (register layout, register map) or None if unable to get register layout
         """
+
         self._rsp_lock.acquire()
         self._rsp.send(b'qXfer:features:read:target.xml:0,ffb')
         response = self._rsp.recv()
@@ -645,3 +667,7 @@ def _decode_stop_reason(signal_code):
         stop_reason = StopReasons.swbreak
 
     return stop_reason
+
+def _is_error_reply(packet):
+    return packet and chr(packet[0]) == 'E'
+

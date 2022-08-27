@@ -1,5 +1,5 @@
 from monk.memory.memreader import get_reg
-from monk.symbols.structs import TaskStruct, ThreadInfo, ListHead
+from monk.symbols.structs import TaskStruct, ThreadInfo, ListHead, PtRegs
 from monk.utils.helpers import as_string, as_int_list
 
 
@@ -175,6 +175,12 @@ def get_user_regs(sp=None):
     :returns: The address of the saved registers' pt_regs struct
     :rtype: int
     """
+    if not sp:
+        sp = get_reg('sp')
+
+    return PtRegs(sp | 0x1fb0).uregs
+
+def get_pt_regs(sp=None):
     if not sp:
         sp = get_reg('sp')
 

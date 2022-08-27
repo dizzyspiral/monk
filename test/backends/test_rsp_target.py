@@ -136,8 +136,8 @@ class TestRspTarget(unittest.TestCase):
         sock.close()
 
     def test_get_reg_layout(self):
-        expected_reg_layout = [('r0', 4), ('r1', 4), ('r2', 4), ('r3', 4), ('r4', 4), ('r5', 4), ('r6', 4), ('r7', 4), ('r8', 4), ('r9', 4), ('r10', 4), ('r11', 4), ('r12', 4), ('sp', 4), ('lr', 4), ('pc', 4), ('cpsr', 4), ('d0', 8), ('d1', 8), ('d2', 8), ('d3', 8), ('d4', 8), ('d5', 8), ('d6', 8), ('d7', 8), ('d8', 8), ('d9', 8), ('d10', 8), ('d11', 8), ('d12', 8), ('d13', 8), ('d14', 8), ('d15', 8), ('fpsid', 4), ('fpscr', 4), ('fpexc', 4), ('DUMMY', 4), ('DBGDIDR', 4), ('MIDR', 4), ('CTR', 4), ('TCMTR', 4), ('TLBTR', 4), ('DUMMY', 4), ('DUMMY', 4), ('DACR', 4), ('TTBR0_EL1', 4), ('DFAR', 4), ('TTBR1_EL1', 4), ('TTBCR', 4), ('DUMMY', 4), ('DUMMY', 4), ('SCTLR', 4), ('DFSR', 4), ('DLOCKDOWN', 4), ('IFSR', 4), ('FCSEIDR', 4), ('ILOCKDOWN', 4), ('CONTEXTIDR_EL1', 4)]
-        expected_reg_map = {'r0': 0, 'r1': 1, 'r2': 2, 'r3': 3, 'r4': 4, 'r5': 5, 'r6': 6, 'r7': 7, 'r8': 8, 'r9': 9, 'r10': 10, 'r11': 11, 'r12': 12, 'sp': 13, 'lr': 14, 'pc': 15, 'cpsr': 16, 'd0': 17, 'd1': 18, 'd2': 19, 'd3': 20, 'd4': 21, 'd5': 22, 'd6': 23, 'd7': 24, 'd8': 25, 'd9': 26, 'd10': 27, 'd11': 28, 'd12': 29, 'd13': 30, 'd14': 31, 'd15': 32, 'fpsid': 33, 'fpscr': 34, 'fpexc': 35, 'DUMMY': 50, 'DBGDIDR': 37, 'MIDR': 38, 'CTR': 39, 'TCMTR': 40, 'TLBTR': 41, 'DACR': 44, 'TTBR0_EL1': 45, 'DFAR': 46, 'TTBR1_EL1': 47, 'TTBCR': 48, 'SCTLR': 51, 'DFSR': 52, 'DLOCKDOWN': 53, 'IFSR': 54, 'FCSEIDR': 55, 'ILOCKDOWN': 56, 'CONTEXTIDR_EL1': 57}
+        expected_reg_layout = [('r0', 4), ('r1', 4), ('r2', 4), ('r3', 4), ('r4', 4), ('r5', 4), ('r6', 4), ('r7', 4), ('r8', 4), ('r9', 4), ('r10', 4), ('r11', 4), ('r12', 4), ('sp', 4), ('lr', 4), ('pc', 4), ('cpsr', 4)] 
+        expected_reg_map = {'r0': 0, 'r1': 1, 'r2': 2, 'r3': 3, 'r4': 4, 'r5': 5, 'r6': 6, 'r7': 7, 'r8': 8, 'r9': 9, 'r10': 10, 'r11': 11, 'r12': 12, 'sp': 13, 'lr': 14, 'pc': 15, 'cpsr': 25}
 
         send_queue = Queue()
         send_queue.put(b"$T05thread:p01.01;#06")  # Reply to ? query for stopped status

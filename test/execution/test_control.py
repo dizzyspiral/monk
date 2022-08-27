@@ -331,8 +331,29 @@ class TestControl(unittest.TestCase):
         self.assertEqual(control._on_execute_callbacks[0], [])
         test_backend.del_exec_breakpoint.called_with(0)
 
+        # Remove callback that doesn't exist
+        with self.assertRaises(control.MonkControlError):
+            control.remove_callback(r1)
+
+        # Use unsupported kind
+        with self.assertRaises(control.MonkControlError):
+            control.remove_callback(('nope', 0, None))
+
     def test_del_breakpoint(self):
-        pass
+        control._del_breakpoint(control.EVENT_WRITE, 0)
+        test_backend.del_write_breakpoint.assert_called_with(0)
+
+        control._del_breakpoint(control.EVENT_READ, 1)
+        test_backend.del_read_breakpoint.assert_called_with(1)
+
+        control._del_breakpoint(control.EVENT_ACCESS, 2)
+        test_backend.del_access_breakpoint.assert_called_with(2)
+
+        control._del_breakpoint(control.EVENT_EXECUTE, 3)
+        test_backend.del_exec_breakpoint.assert_called_with(3)
+
+        with self.assertRaises(control.MonkControlError):
+            control._del_breakpoint('nope', 4)
 
     def test_on_read_dispatcher(self):
         pass

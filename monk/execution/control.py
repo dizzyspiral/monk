@@ -79,7 +79,7 @@ def remove_callback(cb):
         fail = True
 
     if fail:
-        raise MonkControlError("no '{}' callback found for address '{}'".format(kind, addr))
+        raise MonkControlError("no '{}' callback found for address '{}'".format(kind, hex(addr)))
    
     # If there are no more callbacks registered for this address, we need to remove the breakpoint
     if len(cb_registry[addr]) < 1:
