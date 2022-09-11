@@ -25,7 +25,13 @@ def byte_order_int(val):
     # the byte ordering of the machine from the JSON file by looking at the endianess
     # of the basic types.
     logging.getLogger(__name__).debug("byte_order_int(%s)" % val)
-    b = bytes.fromhex(val.decode())
+
+    try:
+        b = bytes.fromhex(val.decode())
+    except ValueError as e:
+        print("Unable to decode '{}'".format(val))
+        raise e
+
     i = int.from_bytes(b, "little")
     return i
 

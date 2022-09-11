@@ -9,6 +9,8 @@ import monk.execution.signals as signals
 from monk.backends.rsp_helpers.gdbrsp import GdbRsp
 from monk.utils.helpers import hexbyte, byte_order_int, hexaddr, hexval
 
+from monk.backends.rsp_helpers.regs.arm import reg_layout as arm_reg_layout, reg_map as arm_reg_map
+
 _gdbrsp = None  # After initialization, this is a GdbRsp object with a connection to the target
 
 
@@ -73,6 +75,8 @@ class RspTarget():
         self.cmd_stop()
         self._negotiate_features()
         self._reg_layout, self._reg_map = self._get_reg_layout()
+        # TODO: Fix automatic register layout parsing so this isn't hard-coded
+        self._reg_layout, self._reg_map = (arm_reg_layout, arm_reg_map)
 
         self._stop_events_thread.start()
 
@@ -164,12 +168,15 @@ class RspTarget():
             # Call the appropriate event handler for the type of breakpoint encountered.
             # The event handlers are overridden by control.hooks 
             if bp_type == StopReasons.swbreak:
-                logging.getLogger(__name__).debug("got swbreak, resetting breakpoint")
+                # If the callback unsets the breakpoint for the current address, this will get set
+                self._callback_unset_bp = False
+                logging.getLogger(__name__).debug("got swbreak, removing breakpoint")
 
                 # Try to remove the breakpoint at the current address; if it fails, the target
                 # probably already removed it for us. We have to remove the breakpoint, step,
                 # and then set the breakpoint again because otherwise when we continue the target
                 # will immediately hit the breakpoint again without executing.
+                # TODO: We can remove this now, we don't set our breakpoints to persist w/ the stub.
                 try:
                     self.remove_sw_breakpoint(addr)
                 except RspTargetError:
@@ -177,20 +184,21 @@ class RspTarget():
 
                 logging.getLogger(__name__).debug("calling on_execute")
                 self.on_execute(addr)
+
+                # XXX The callback may have unset this breakpoint. We don't want to set it again
+                # in that case.
+                if not self._callback_unset_bp:
+                    logging.getLogger(__name__).debug("resetting breakpoint")
+                    # Step the target one instruction, then reset the breakpoint at the target address
+                    self.cmd_step()
+                    # Wait for the stop packet to arrive; if we try to send commands before the target
+                    # has stopped again, the target will ignore them.
+                    self._rsp.stop_queue.get(timeout=1)  # TODO: refactor, probably move to cmd_step
+                    self.set_sw_breakpoint(addr)
+
             else:
                 logging.getLogger(__name__).debug("unrecognized stop reason")
 
-            # Step the target one instruction, then reset the breakpoint at the target address
-            self.cmd_step()
-            # Wait for the stop packet to arrive; if we try to send commands before the target
-            # has stopped again, the target will ignore them.
-            self._rsp.stop_queue.get(timeout=1)  # TODO: refactor, probably move to cmd_step
-
-#            new_addr = self.read_register('pc')
-#            logging.getLogger(__name__).debug("new address after stepping: %s" % hex(new_addr))
-#            print("new address after stepping: %s" % hex(new_addr))
-
-            self.set_sw_breakpoint(addr)
             # Invoking continue here assumes that we'll never have a stop packet queued at this point.
             # We could check...
             self.cmd_continue()
@@ -234,18 +242,27 @@ class RspTarget():
         """
         raise_err = False
 
-        try:
-            regnum = self._reg_map[regname]
-        except KeyError:
-            raise_err = True
+        # if regname is an int, assume it's the int identifier of the register in the map
+        if type(regname) == int:
+            regnum = regname
+        else:
+            try:
+                regnum = self._reg_map[regname]
+            except KeyError:
+                raise_err = True
 
-        if raise_err:
-            raise RspTargetError("Unable to read register '%s': register unknown" % regname)
+            if raise_err:
+                raise RspTargetError("Unable to read register '%s': register unknown" % regname)
 
         self._rsp_lock.acquire()
         self._rsp.send(b'p%s' % hexbyte(regnum))
-        response = byte_order_int(self._rsp.recv())  # TODO: Timeouts for reads
+        response = self._rsp.recv()
         self._rsp_lock.release()
+
+        if _is_error_reply(response):
+            raise RspTargetError("Unable to read register '{}' with index {}, received error '{}'".format(regname, regnum, response))
+
+        response = byte_order_int(response)  # TODO: Timeouts for reads
 
         return response
 
@@ -437,15 +454,40 @@ class RspTarget():
         self._rsp_lock.release()
 
     def remove_sw_breakpoint(self, addr):
+        """
+        Remove a software breakpoint.
+
+        :param int addr: the address of the breakpoint
+        :raises RspTargetError: if the target returns an error code
+        """
+        logging.getLogger(__name__).debug("rsp_target.remove_sw_breakpoint: {}".format(hex(addr)))
         self._rsp_lock.acquire()
         self._rsp.send(b'z0,%s,4' % hexaddr(addr))
         status = self._rsp.recv()
-        
-        if status and chr(status[0]) == 'E':
-            self._rsp_lock.release()
-            raise RspTargetError("Unable to remove software breakpoint: %s" % status)
-
         self._rsp_lock.release()
+
+        # If we're in a callback and we just unset the breakpoint at the current pc, we set
+        # a flag so that the event loop won't reset the current breakpoint before continuing
+        # target execution.
+        if threading.get_ident() != self._main_thread_id and \
+           threading.get_ident() != self._stop_events_thread.ident and \
+           addr == self.read_register('pc'):
+            self._callback_unset_bp = True
+
+        # In keeping with gdbstubs doing more or less whatever the heck they want, if removing
+        # a breakpoint results in an error from the target, it probably doesn't mean that removing
+        # the breakpoint actually failed. This is... neat, to say the least.
+        #
+        # I found some documentation on the internet that GDB apparently just ignores errors it
+        # gets from the target in basically all cases. I've made the decision to have this function
+        # raise the error, but at the backends/rsp.py interface I have it ignore the error. This makes
+        # it easy to propagate the errors up later if that seems wise.
+        # 
+        # If this becomes onerous, it's fine to just choose to ignore the error here. There are plenty
+        # of places in RspTarget where we *could* look for error codes and we don't, anyway.
+
+        if status and chr(status[0]) == 'E':
+            raise RspTargetError("Unable to remove software breakpoint: %s" % status)
 
     def remove_hw_breakpoint(self, addr):
         self._rsp_lock.acquire()
@@ -497,7 +539,16 @@ class RspTarget():
         list of (regname, regsize) tuples. This uses a list of tuples because 
         order matters - the order the registers are listed in is the order in which 
         they are represented in queries to the gdbstub to get the register values.
+
+        This method does not properly order all of the registers. The meaning of the XML files
+        and each register's associated index is an internal GDB implementation detail. To 
+        support arbitrary machines, we'll have to RE how GDB maps the XML files to the register
+        layout. For now... I've hardcoded the ARM register layout.
+
+        :rtype: tuple
+        :return: (register layout, register map) or None if unable to get register layout
         """
+
         self._rsp_lock.acquire()
         self._rsp.send(b'qXfer:features:read:target.xml:0,ffb')
         response = self._rsp.recv()
@@ -616,3 +667,7 @@ def _decode_stop_reason(signal_code):
         stop_reason = StopReasons.swbreak
 
     return stop_reason
+
+def _is_error_reply(packet):
+    return packet and chr(packet[0]) == 'E'
+

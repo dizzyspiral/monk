@@ -168,6 +168,8 @@ class GdbRsp():
                 # Send an ack. Directly append to send queue, because ack doesn't need checksum
                 self._send_queue.put(b'+')
 
+            logging.getLogger(__name__).debug("received packet {}".format(packet))
+
             if _is_stop_packet(packet):
                 self.stop_queue.put(packet)
             else:

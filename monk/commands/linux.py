@@ -1,7 +1,7 @@
 import gdb
 
 from forensics.linux import get_thread, get_task, get_kernel_regs, get_proc_name, get_pid, \
-    walk_tasks, find_task, set_task_pid, set_task_name, set_task_tasks
+    walk_tasks, find_task, set_task_pid, set_task_name, set_task_tasks, get_pt_regs
 
 class PrintCurrentProcess(gdb.Command):
     def __init__(self):
@@ -18,6 +18,8 @@ class PrintCurrentProcess(gdb.Command):
             print("0x%x" % get_kernel_regs())
         elif arg == 'pid':
             print("{}".format(get_pid()))
+        elif arg== 'pt_regs':
+            print("{}".format(hex(get_pt_regs())))
 #        elif arg == 'children':
 #            print("{}".format(get_child_task_names()))
         else:

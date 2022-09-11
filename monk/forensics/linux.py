@@ -1,5 +1,5 @@
 from monk.memory.memreader import get_reg
-from monk.symbols.structs import TaskStruct, ThreadInfo, ListHead
+from monk.symbols.structs import TaskStruct, ThreadInfo, ListHead, PtRegs
 from monk.utils.helpers import as_string, as_int_list
 
 
@@ -178,6 +178,12 @@ def get_user_regs(sp=None):
     if not sp:
         sp = get_reg('sp')
 
+    return PtRegs(sp | 0x1fb0).uregs
+
+def get_pt_regs(sp=None):
+    if not sp:
+        sp = get_reg('sp')
+
     return sp | 0x1fb0
 
 def get_kernel_regs(thread=None):
@@ -193,4 +199,4 @@ def get_kernel_regs(thread=None):
     if not thread:
         thread = get_thread()
 
-    return ThreadInfo(thread).cpu_context.base
+    return ThreadInfo(thread).cpu_context
