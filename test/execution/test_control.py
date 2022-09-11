@@ -356,16 +356,46 @@ class TestControl(unittest.TestCase):
             control._del_breakpoint('nope', 4)
 
     def test_on_read_dispatcher(self):
-        pass
+        test_callback = MagicMock()
+        test_callback2 = MagicMock()
+        control.break_on_read(0x0, test_callback)
+        control.break_on_read(0x1, test_callback2)
+        control._on_read_dispatcher(0x0)
+        test_callback.assert_called()
+        test_callback2.assert_not_called()
 
     def test_on_write_dispatcher(self):
-        pass
+        test_callback = MagicMock()
+        test_callback2 = MagicMock()
+        control.break_on_write(0x0, test_callback)
+        control.break_on_write(0x1, test_callback2)
+        control._on_write_dispatcher(0x0)
+        test_callback.assert_called()
+        test_callback2.assert_not_called()
 
     def test_on_access_dispatcher(self):
-        pass
+        test_callback = MagicMock()
+        test_callback2 = MagicMock()
+        control.break_on_access(0x0, test_callback)
+        control.break_on_access(0x1, test_callback2)
+        control._on_access_dispatcher(0x0)
+        test_callback.assert_called()
+        test_callback2.assert_not_called()
 
     def test_on_execute_dispatcher(self):
-        pass
+        test_callback = MagicMock()
+        test_callback2 = MagicMock()
+        control.break_on_execute(0x0, test_callback)
+        control.break_on_execute(0x1, test_callback2)
+        control._on_execute_dispatcher(0x0)
+        test_callback.assert_called()
+        test_callback2.assert_not_called()
 
     def test_callback_handler(self):
-        pass
+        test_callback = MagicMock()
+        control._set_breakpoint(control.EVENT_EXECUTE, 0x0)
+        control._callback_handler([test_callback])
+        test_callback.assert_called()
+        # This is supposed to test that breakpoints are re-set on target stop, but atm it's not
+        # an effective test...
+        test_backend.set_exec_breakpoint.assert_called_with(0x0)

@@ -176,9 +176,10 @@ def _callback_handler(callbacks):
     logging.getLogger(__name__).debug("callbacks done.")
 
     # This is an implementation detail of the RSP backend... All sw breakpoints get cleared by the gdbstub
-    # when the target stops. This makes it so that reading memory won't result in accidentally reading some breakpoint opcodes instead of the actual memory at that address. However, we have to set the breakpoints that
-    # got cleared again before re-starting the target, otherwise they're just gone, and all of our hooks
-    # are broken.
+    # when the target stops. This makes it so that reading memory won't result in accidentally reading some
+    # breakpoint opcodes instead of the actual memory at that address. However, we have to set the 
+    # breakpoints that got cleared again before re-starting the target, otherwise they're just gone, and 
+    # all of our hooks are broken.
     for addr in _on_execute_callbacks.keys():
         if len(_on_execute_callbacks[addr]) > 0:
             _set_breakpoint(EVENT_EXECUTE, addr)
