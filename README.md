@@ -2,6 +2,8 @@
 
 An introspection framework built on GDB.
 
+This thing is a work in progress - it's not stable, and it only works for a specific platform.
+
 ## Requirements
 
 ```
@@ -24,11 +26,11 @@ So maybe you don't have a VM or hardware target you want to try this against rig
 git clone https://github.com/buildroot/buildroot.git
 ```
 
-2. Build an ARM versatile-pb Linux kernel with symbols, and busybox VM image.
+2. Build an ARM versatile-pb Linux kernel with symbols, and VM image with busybox.
 
 ```
 cd buildroot
-TBD
+TBD - use the QEMU ARM verstailepb defconfig, compile with symbols and no kaslr
 ```
 
 3. Create a JSON symbols and types file from the kernel and System.map file
@@ -40,7 +42,7 @@ TBD
 4. Run the QEMU VM
 
 ```
-TBD
+qemu-system-arm -M versatilepb -kernel zImage -dtb verstile-pb.dtb -drive file=rootfs.ext2,if=scsi,format=raw -append "rootwait root=/dev/sda console=ttyAMA0,115200" -net nic,model=rtl8139 -net user -setial stdio -s -S
 ```
 
 5. Attach GDB
@@ -56,7 +58,7 @@ target remote localhost:1234
 source monk_gdb.py
 ```
 
-Now you're ready to start doing some introspection using GDBeast. Here's some ideas to get you started. Alternatively, check out the API documentation.
+Now you're ready to start doing some introspection using monk. Here's some ideas to get you started. Alternatively, check out the API documentation.
 
 ### Print the name of the current process
 
@@ -67,8 +69,23 @@ print-current-process name
 ### Print the names of all processes
 
 ```
-TBD
+print-all-processes
 ```
+
+### Scripting
+
+If you run monk with the RSP backend instead of the GDB backend, you won't be able to use it with GDB, but you will be able to use it directly in your python scripts. Using the RSP backend is generally more flexible than GDB, but can be more difficult to prototype new analyses with.
+
+To use the GDB backend, edit the config.json file and replace "gdb" with "rsp".
+
+Because of the way that the kernel object classes are automatically generated, monk has to be initialized at import-time before any subsequent monk modules can be imported. I'm working on making this less cumbersome, but for now, to use monk you have to make sure you do this:
+
+```
+import monk
+monk.init("path/to/your/config.json")
+```
+
+before importing or using anything else in the monk package.
 
 ## Supported platforms
 
