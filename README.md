@@ -1,4 +1,4 @@
-![tests workflow](https://github.com/dizzyspiral/monk/workflows/Unit%tests/badge.svg)
+![tests workflow](https://github.com/dizzyspiral/monk/workflows/Unit%20tests/badge.svg)
 ![coverage workflow](https://github.com/dizzyspiral/monk/workflows/Coverage/badge.svg)
 
 
