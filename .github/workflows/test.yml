@@ -32,6 +32,3 @@ jobs:
     - name: Run unit tests
       run: |
         ./run-tests.sh
-    - name: Run coverage
-      run: |
-        ./run-coverage.sh

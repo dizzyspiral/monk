@@ -1,3 +1,7 @@
+![tests workflow]https://github.com/dizzyspiral/monk/actions/workflows/test/badge.svg
+![coverage workflow]https://github.com/dizzyspiral/monk/actions/workflows/coverage/badge.svg
+
+
 # Monk
 
 An introspection framework built on GDB.
