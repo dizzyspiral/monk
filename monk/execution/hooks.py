@@ -71,7 +71,9 @@ class Callback:
     def install(self):
         """
         Install the callback. This function is defined by the subclass, often hooking execution
-        of a particular address or symbol.
+        of a particular address or symbol. That hook may not directly call run(), though it is
+        expected that run() will eventually be called when the event of interest occurs, in order
+        to invoke the user-defined callback for the event.
         """
         raise MonkCallbackError("Callback install() not initialized")
 
@@ -101,10 +103,10 @@ class OnProcessExecute(Callback):
         self.install()
 
     def _on_switch_to(self):
-        next_thread = memreader.get_reg('r2')
+        next_thread = get_reg('r2')
 
-        if forensics.linux.get_proc_name(next_thread) == self._proc_name:
-            saved_regs = forensics.linux.get_kernel_regs()
+        if get_proc_name(next_thread) == self._proc_name:
+            saved_regs = get_kernel_regs()
             self._cb_proc_exec = self.add_hook(saved_regs.pc, self._on_proc_exec)
 
     def _on_proc_exec(self):

@@ -29,8 +29,13 @@ def cb_print_next_proc():
 def hello():
     print("Hello from callback")
 
+def cb_print_proc_name():
+    global count
+    count += 1
+    print(f"process = {forensics.linux.get_proc_name()}")
+
 if __name__ == '__main__':
-    h = hooks.OnExecute('__switch_to', cb_print_next_proc)
+    h = hooks.OnProcessExecute('kthreadd', cb_print_proc_name)
     control.run()
 
     while count < 5:
