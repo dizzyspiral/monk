@@ -10,6 +10,8 @@ import monk.forensics as forensics
 import monk.execution.control as control
 import monk.execution.hooks as hooks
 from monk.symbols.uregs.arm import *
+from monk.symbols.structs import TaskStruct
+from monk.utils.helpers import as_string
 
 
 _shutdown_flag = False
@@ -34,7 +36,7 @@ def cb_print_proc_name():
     count += 1
     print(f"process = {forensics.linux.get_proc_name()}")
 
-if __name__ == '__main__':
+def test_on_proc_exec():
     h = hooks.OnProcessExecute('kthreadd', cb_print_proc_name)
     control.run()
 
@@ -42,4 +44,29 @@ if __name__ == '__main__':
         time.sleep(5)
 
     h.uninstall()
+    control.shutdown()
+
+def cb_print_mm():
+    global count
+    count += 1
+    tasks = forensics.linux.get_task_list()
+
+    for task in tasks:
+        print(f"task name: {as_string(task.comm)}")
+        print(f"task.mm = {hex(task.mm)}")
+
+def cb_print_task():
+    global count
+    count += 1
+    
+    t = forensics.linux.get_task()
+    print(TaskStruct(t))
+
+if __name__ == '__main__':
+    h = hooks.OnProcessScheduled('sh', cb_print_task)
+    control.run()
+
+    while count < 1:
+        time.sleep(1)
+
     control.shutdown()

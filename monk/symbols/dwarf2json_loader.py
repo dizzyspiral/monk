@@ -78,7 +78,14 @@ class Dwarf2JsonLoader:
 
     def get_array_type(self, field_attributes):
         k = field_attributes['type']['subtype']['kind']
-        t = field_attributes['type']['subtype']['name']
+
+        try:
+            t = field_attributes['type']['subtype']['name']
+        except:
+            # If the array is an array of pointers to structs, then there are two subtypes, and the
+            # first nested subtype doesn't have a name. It does however have a kind, and that kind
+            # is (hopefully, probably, maybe?) pointer.
+            t = field_attributes['type']['subtype']['kind']
 
         # If k is a struct, union, or (heaven forbid) an array, we assume this is an array of pointers.
         # I'm really not sure if there are ever in-place list-of-lists in the kernel. If there are, this
@@ -91,6 +98,13 @@ class Dwarf2JsonLoader:
 
     def get_array_count(self, field_attributes):
         return field_attributes['type']['count']
+
+    def get_bitfield_info(self, field_attributes):
+        base_type = field_attributes['type']['type']['name']
+        bit_position = field_attributes['type']['bit_position']
+        bit_length = field_attributes['type']['bit_length']
+
+        return base_type, bit_position, bit_length
 
     def get_base_type_name(self, field_attributes):
         t = self.get_field_type(field_attributes)
