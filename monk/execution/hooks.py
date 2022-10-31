@@ -96,6 +96,22 @@ class OnExecute(Callback):
         self.add_hook(self._symbol, self.run)
 
 
+class OnProcessScheduled(Callback):
+    def __init__(self, proc_name, cb=None):
+        super().__init__(cb)
+        self._proc_name = proc_name
+        self.install()
+
+    def install(self):
+        self.add_hook("__switch_to", self._on_switch_to)
+
+    def _on_switch_to(self):
+        next_thread = get_reg('r2')
+
+        if get_proc_name(next_thread) == self._proc_name:
+            self.run()
+
+
 class OnProcessExecute(Callback):
     def __init__(self, proc_name, cb=None):
         super().__init__(cb)

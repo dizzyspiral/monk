@@ -108,6 +108,27 @@ def walk_tasks(task=None):
         print("{}, ".format(as_string(cur_task.comm)))
         cur_task = TaskStruct(cur_task.tasks.next - cur_task.tasks_offset)
 
+def get_task_list(task=None):
+    """
+    Walks tasks and returns a list of TaskStruct objects, starting with the specified task.
+    If no task is given, the currently running task is used to begin the walk.
+
+    :param int task: The address of the task to begin walking from
+    """
+    if not task:
+        task = get_task()
+
+    task_list = []
+
+    task_list.append(TaskStruct(task))
+    pid = task_list[-1].pid
+    task_list.append(TaskStruct(task_list[-1].tasks.next - task_list[-1].tasks_offset))
+   
+    while task_list[-1].pid != pid:
+        task_list.append(TaskStruct(task_list[-1].tasks.next - task_list[-1].tasks_offset))
+
+    return task_list
+
 def _get_task(task=None, taskname=None):
     """
     This is a silly helper function to get the task based on args specified to other
