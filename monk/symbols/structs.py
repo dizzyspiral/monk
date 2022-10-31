@@ -206,18 +206,19 @@ def _gen_str_method(attr_list):
     """
 
     def to_str(self):
-        s = ""
+        s = f"{self.name}: base:{hex(self.base)}\n"
+        s += "=====\n"
         for attr, attr_type in attr_list:
             if attr_type in basic_types:
-                s += f"{attr}: {getattr(self, attr)}\n"
+                s += f"{attr}: {hex(getattr(self, attr))}\n"
             elif attr_type in class_types:
                 cls = getattr(self, attr)
-                s += f"{attr}: struct type = {cls.name}, base address = {hex(cls.base)}\n"
+                s += f"{attr} ({cls.name}): {hex(cls.base)}\n"
             elif attr_type in array_types:
                 arr = getattr(self, attr)
                 s += f"{attr}: {arr}, as string: {as_string(arr)}\n"
             elif attr_type == 'bitfield':
-                s += f"{attr}: {getattr(self, attr)}\n"
+                s += f"{attr}: {hex(getattr(self, attr))}\n"
             else:
                 s += f"{attr}: null\n"
 
