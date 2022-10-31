@@ -216,7 +216,11 @@ def _gen_str_method(attr_list):
                 s += f"{attr} ({cls.name}): {hex(cls.base)}\n"
             elif attr_type in array_types:
                 arr = getattr(self, attr)
-                s += f"{attr}: {arr}, as string: {as_string(arr)}\n"
+                s += f"{attr}: {arr}"
+                try:
+                    s += f", as string: {as_string(arr)}\n"
+                except OverflowError:
+                    s += "\n"
             elif attr_type == 'bitfield':
                 s += f"{attr}: {hex(getattr(self, attr))}\n"
             else:
