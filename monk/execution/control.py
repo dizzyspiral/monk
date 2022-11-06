@@ -39,6 +39,9 @@ def run():
 def stop():
     _backend.stop()
 
+def step():
+    _backend.step()
+
 def shutdown():
     _backend.shutdown()
 

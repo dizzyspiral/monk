@@ -49,6 +49,11 @@ class RspTarget():
         # of the guest in this state is cmd_continue()
         self._user_stopped = False
 
+        # To handle some weirdness with how breakpoints get set/unset when they're hit, this variable
+        # is used to store the most recently hit breakpoint address, so that it can be restored just
+        # before continuing execution again.
+        self._saved_bp = None
+
         # This locks RSP so that multiple threads sharing the same RSP connection do not interleave
         # their requests and subsequently receive a response not meant for them, or otherwise
         # corrupt the communication. This lock should be acquired at the beginning of any RSP operation 
@@ -160,14 +165,15 @@ class RspTarget():
             logging.getLogger(__name__).debug("getting stop reason...")
             bp_type = self._get_stop_reason(packet)
             logging.getLogger(__name__).debug("stop reason = %s" % bp_type)
-            logging.getLogger(__name__).debug("getting pc...")
-            addr = self.read_register('pc')
-            logging.getLogger(__name__).debug("pc = %s" % addr)
 
             logging.getLogger(__name__).debug("determining event handler...")
             # Call the appropriate event handler for the type of breakpoint encountered.
             # The event handlers are overridden by control.hooks 
             if bp_type == StopReasons.swbreak:
+                logging.getLogger(__name__).debug("getting pc...")
+                addr = self.read_register('pc')
+                logging.getLogger(__name__).debug("pc = %s" % addr)
+
                 # If the callback unsets the breakpoint for the current address, this will get set
                 self._callback_unset_bp = False
                 logging.getLogger(__name__).debug("got swbreak, removing breakpoint")
@@ -190,12 +196,20 @@ class RspTarget():
                 if not self._callback_unset_bp:
                     logging.getLogger(__name__).debug("resetting breakpoint")
                     # Step the target one instruction, then reset the breakpoint at the target address
-                    self.cmd_step()
+                    # XXX This won't actually step the target if the user stopped the target. Need to
+                    # save the bp address to re-set next time the target actually successfully steps or
+                    # continues execution. For the continue case, if there is a breakpoint to re-set,
+                    # we should step, set the breakpoint, and continue - much like we're trying to do
+                    # here
+                    self._saved_bp = addr
+#                    self.cmd_step()
                     # Wait for the stop packet to arrive; if we try to send commands before the target
                     # has stopped again, the target will ignore them.
-                    self._rsp.stop_queue.get(timeout=1)  # TODO: refactor, probably move to cmd_step
-                    self.set_sw_breakpoint(addr)
+#                    self._rsp.stop_queue.get(timeout=1)  # TODO: refactor, probably move to cmd_step
+#                    self.set_sw_breakpoint(addr)
 
+            # TODO: If we step, will it trigger a swbreak if we hit a breakpoint, or do we need to
+            # manually check for callbacks at that address?
             else:
                 logging.getLogger(__name__).debug("unrecognized stop reason")
 
@@ -365,17 +379,51 @@ class RspTarget():
 
         self._rsp_lock.acquire()
         self._rsp.send(b'vCont;s')
+
+        # # Wait for the stop packet to arrive; if we try to send commands before the target
+        # has stopped again, the target will ignore them.
+        # TODO: Figure out if we ever need the SIGINT stop packet that this generates - i.e.
+        # if stepping will also produce a SIGTRAP if it hits a software breakpoint, or not.
+        # If it won't produce a SIGTRAP, we need to push this stop event back into the
+        # queue so that it gets handled by the event loop.
+        try:
+            # XXX THIS IS VERY SLOW. What causes a stop packet to be sent back some times, 
+            # and not others??
+            self._rsp.stop_queue.get(timeout=1)
+        except Empty:
+            pass  # Maybe?
+
         self._rsp_lock.release()
+
+        if self._saved_bp:
+            logging.getLogger(__name__).debug("re-setting saved breakpoint")
+            self.set_sw_breakpoint(self._saved_bp)
+            self.saved_bp = None
+
 #        self._rsp.recv()
 
         if is_main_thread:
             self._event_lock.release()
+
+        logging.getLogger(__name__).debug("cmd_step finished")
 
     def cmd_continue(self):
         if not self._guard_execution("continue"):
             return
 
         is_main_thread = threading.get_ident() == self._main_thread_id
+
+        # un-setting user_stopped before (potentially) stepping, so that it will actually step
+        self._user_stopped = False
+
+        if self._saved_bp:
+            # We have to step and set the breakpoint rather than issuing continue and then setting it
+            # because a) we could miss the breakpoint address in the time between when the target
+            # continues and we set the breakpoint, and b) also the target has to be stopped for us to
+            # set breakpoints.
+            logging.getLogger(__name__).debug("stepping before re-setting saved breakpoint")
+            # cmd_step will re-set the saved breakpoint as part of its logic, so no need to do it here
+            self.cmd_step()
 
         # Make sure the event loop isn't executing - there's a slight race condition between
         # when the event is queued and when the event loop picks it up. Hopefully this isn't
@@ -384,7 +432,6 @@ class RspTarget():
             self._event_lock.acquire()
 
         self._rsp_lock.acquire()
-        self._user_stopped = False
         self._target_is_stopped = False
         logging.getLogger(__name__).debug("Sending continue cmd")
         self._rsp.send(b'vCont;c')
@@ -595,6 +642,7 @@ class RspTarget():
             logging.getLogger(__name__).debug("_get_stop_reason() stop is signal")
             signal_code = int(packet[1:3])
             logging.getLogger(__name__).debug("__get_stop_reason() signal code = %s" % signal_code)
+
             if signal_code == signals.SIGINT:
                 logging.getLogger(__name__).debug("SIGINT")
             elif signal_code == signals.SIGTRAP:

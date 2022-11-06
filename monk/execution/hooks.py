@@ -3,7 +3,8 @@ import threading
 
 from monk.forensics.linux import get_user_regs, get_kernel_regs, get_proc_name
 from monk.memory.memreader import get_reg
-from monk.execution.control import break_on_execute, remove_callback
+from monk.execution.control import break_on_execute, remove_callback, MonkControlError
+from monk.symbols.structs import ThreadInfo
 from monk.symbols.lookup import lookup
 from monk.symbols.uregs.arm import *
 
@@ -20,7 +21,7 @@ class MonkCallbackError(Exception):
 
 
 class Callback:
-    def __init__(self, cb_func=None):
+    def __init__(self, callback=None):
         """
         Create a new callback.
 
@@ -35,8 +36,8 @@ class Callback:
         self._hook_lock = threading.Lock()
         self._hooks = []
 
-        if cb_func:
-            self.run = cb_func
+        if callback:
+            self.run = callback
 
     def add_hook(self, symbol, cb):
         self._hook_lock.acquire()
@@ -87,8 +88,8 @@ class Callback:
 
 
 class OnExecute(Callback):
-    def __init__(self, symbol, cb=None):
-        super().__init__(cb)
+    def __init__(self, symbol, callback=None):
+        super().__init__(callback)
         self._symbol = symbol
         self.install()
 
@@ -97,8 +98,8 @@ class OnExecute(Callback):
 
 
 class OnProcessScheduled(Callback):
-    def __init__(self, proc_name, cb=None):
-        super().__init__(cb)
+    def __init__(self, proc_name=None, callback=None):
+        super().__init__(callback)
         self._proc_name = proc_name
         self.install()
 
@@ -106,15 +107,18 @@ class OnProcessScheduled(Callback):
         self.add_hook("__switch_to", self._on_switch_to)
 
     def _on_switch_to(self):
-        next_thread = get_reg('r2')
-
-        if get_proc_name(next_thread) == self._proc_name:
+        if not self._proc_name:
             self.run()
+        else:
+            next_thread = get_reg('r2')
+
+            if get_proc_name(next_thread) == self._proc_name:
+                self.run()
 
 
 class OnProcessExecute(Callback):
-    def __init__(self, proc_name, cb=None):
-        super().__init__(cb)
+    def __init__(self, proc_name, callback=None):
+        super().__init__(callback)
         self._proc_name = proc_name
         self.install()
 
@@ -122,8 +126,16 @@ class OnProcessExecute(Callback):
         next_thread = get_reg('r2')
 
         if get_proc_name(next_thread) == self._proc_name:
-            saved_regs = get_kernel_regs()
-            self._cb_proc_exec = self.add_hook(saved_regs.pc, self._on_proc_exec)
+            t = ThreadInfo(next_thread)
+            
+            # addr_limit is the highest userspace address a process can access; if it's 0,
+            # then this is a kernel process. If not, then it's a userspace process.
+            if t.addr_limit > 0x0:
+                saved_pc = get_user_regs(sp=t.cpu_context.sp)[UREGS_PC]
+                self._cb_proc_exec = self.add_hook(saved_pc, self._on_proc_exec)
+            else:
+                saved_regs = get_kernel_regs()
+                self._cb_proc_exec = self.add_hook(saved_regs.pc, self._on_proc_exec)
 
     def _on_proc_exec(self):
         self.remove_hook(self._cb_proc_exec)

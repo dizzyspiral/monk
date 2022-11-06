@@ -64,6 +64,9 @@ def run():
 def stop():
     _rsp_target.cmd_stop()
 
+def step():
+    _rsp_target.cmd_step()
+
 def set_read_breakpoint(addr):
     _rsp_target.set_read_watchpoint(addr)
 
