@@ -3,6 +3,7 @@ import re
 import xml.etree.ElementTree as ET
 import threading
 from queue import Empty
+from time import sleep
 import logging
 
 import monk.execution.signals as signals
@@ -11,6 +12,7 @@ from monk.utils.helpers import hexbyte, byte_order_int, hexaddr, hexval
 
 from monk.backends.rsp_helpers.regs.arm import reg_layout as arm_reg_layout, reg_map as arm_reg_map
 
+SMALL_DELAY = 0.001
 _gdbrsp = None  # After initialization, this is a GdbRsp object with a connection to the target
 
 
@@ -115,16 +117,10 @@ class RspTarget():
         data = self._rsp.recv()
         self._rsp_lock.release()
 
-#        print(data)
-#        print(len(data))
-#        print(self._reg_layout)
-
         expected_chrs = 0
         for regname, size in self._reg_layout:
             expected_chrs += size * 2
         
-#        print(expected_chrs)
-
         consumed_chrs = 0
 
         # Register data is returned sequentially according to the XML register layout we got earlier
@@ -149,16 +145,24 @@ class RspTarget():
             if self._shutdown_flag:
                 return
 
+            self._event_lock.acquire()
             try:
-                packet = self._rsp.stop_queue.get(timeout=1)
+                # This timeout must be kept short in order to avoid delaying other functions which
+                # require the event lock
+                packet = self._rsp.stop_queue.get(timeout=SMALL_DELAY)
             except Empty:
+                self._event_lock.release()
+                # We put a small sleep here in order to let other functions which require
+                # the event lock to pick it up before we try again. Technically things work
+                # without this, but main thread operations requiring the event lock will get
+                # starved and run much slower.
+                sleep(SMALL_DELAY)
                 continue
 
             # run() and stop() both have to be disabled while handling events. Running the guest
             # will mess up the target state that the event handlers and user callbacks depend on.
             # And stopping the guest again, while it's already stopped, will change the stop 
             # reason and subsequently change the handlers that get notified.
-            self._event_lock.acquire()
             logging.getLogger(__name__).debug("_handle_stop_packet target_is_stopped = True")
             self._target_is_stopped = True
             logging.getLogger(__name__).debug("_handle_stop_packet()")
