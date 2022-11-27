@@ -391,6 +391,8 @@ class RspTarget():
         # Make sure the event loop isn't executing - there's a slight race condition between
         # when the event is queued and when the event loop picks it up. Hopefully this isn't
         # a problem.
+        # Narrator voice: it was. A small delay had to be added to the event loop to give this
+        # function a chance to pick up the event lock.
         if is_main_thread:
             # Make sure no stop events are pending that the event loop should process
             self._acquire_event_lock_on_empty_stop_queue()
@@ -447,7 +449,8 @@ class RspTarget():
         # when the event is queued and when the event loop picks it up. Hopefully this isn't
         # a problem.
         if is_main_thread:
-            self._event_lock.acquire()
+            # Make sure we don't have an event pending for the event thread to process before we continue
+            self._acquire_event_lock_on_empty_stop_queue()
 
         self._rsp_lock.acquire()
         self._target_is_stopped = False
