@@ -407,8 +407,6 @@ class RspTarget():
         # If it won't produce a SIGTRAP, we need to push this stop event back into the
         # queue so that it gets handled by the event loop.
         try:
-            # XXX THIS IS VERY SLOW. What causes a stop packet to be sent back some times, 
-            # and not others??
             self._rsp.stop_queue.get(timeout=1)
         except Empty:
             pass  # Maybe?
@@ -449,8 +447,7 @@ class RspTarget():
         # when the event is queued and when the event loop picks it up. Hopefully this isn't
         # a problem.
         if is_main_thread:
-            # Make sure we don't have an event pending for the event thread to process before we continue
-            self._acquire_event_lock_on_empty_stop_queue()
+            self._event_lock.acquire()
 
         self._rsp_lock.acquire()
         self._target_is_stopped = False
