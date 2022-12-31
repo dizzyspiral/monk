@@ -39,6 +39,9 @@ def run():
 def stop():
     _backend.stop()
 
+def step():
+    _backend.step()
+
 def shutdown():
     _backend.shutdown()
 
@@ -171,7 +174,6 @@ def _callback_handler(callbacks):
         t = threading.Thread(target=callback)
         t.start()
         t.join()
-#        callback()
 
     logging.getLogger(__name__).debug("callbacks done.")
 
