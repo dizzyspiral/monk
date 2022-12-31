@@ -159,6 +159,11 @@ class RspTarget():
                 sleep(SMALL_DELAY)
                 continue
 
+            # TODO: Since we track all of the breakpoints locally (in execution/control.py, because
+            # we have to in order to associate an address with its callbacks) we can probably skip
+            # checking what type of breakpoint/stop event we hit, and just dispatch the address to
+            # all of the handlers. It's simpler and likely more efficient than querying the stub.
+
             # run() and stop() both have to be disabled while handling events. Running the guest
             # will mess up the target state that the event handlers and user callbacks depend on.
             # And stopping the guest again, while it's already stopped, will change the stop 
