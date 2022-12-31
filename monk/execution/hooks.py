@@ -107,6 +107,7 @@ class OnProcessScheduled(Callback):
         self.add_hook("__switch_to", self._on_switch_to)
 
     def _on_switch_to(self):
+        print("_on_switch_to")
         if not self._proc_name:
             self.run()
         else:

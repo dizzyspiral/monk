@@ -12,7 +12,7 @@ from monk.utils.helpers import hexbyte, byte_order_int, hexaddr, hexval
 
 from monk.backends.rsp_helpers.regs.arm import reg_layout as arm_reg_layout, reg_map as arm_reg_map
 
-SMALL_DELAY = 0.001
+SMALL_DELAY = 0.0001
 _gdbrsp = None  # After initialization, this is a GdbRsp object with a connection to the target
 
 
@@ -206,11 +206,6 @@ class RspTarget():
                     # we should step, set the breakpoint, and continue - much like we're trying to do
                     # here
                     self._saved_bp = addr
-#                    self.cmd_step()
-                    # Wait for the stop packet to arrive; if we try to send commands before the target
-                    # has stopped again, the target will ignore them.
-#                    self._rsp.stop_queue.get(timeout=1)  # TODO: refactor, probably move to cmd_step
-#                    self.set_sw_breakpoint(addr)
 
             # TODO: If we step, will it trigger a swbreak if we hit a breakpoint, or do we need to
             # manually check for callbacks at that address?
@@ -413,12 +408,14 @@ class RspTarget():
 
         self._rsp_lock.release()
 
+        # Run any callbacks for the new address
+        addr = self.read_register('pc')
+        self.on_execute(addr)
+
         if self._saved_bp:
             logging.getLogger(__name__).debug("re-setting saved breakpoint")
             self.set_sw_breakpoint(self._saved_bp)
             self.saved_bp = None
-
-#        self._rsp.recv()
 
         if is_main_thread:
             self._event_lock.release()

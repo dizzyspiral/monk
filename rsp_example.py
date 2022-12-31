@@ -13,6 +13,7 @@ import monk.execution.hooks as hooks
 from monk.symbols.uregs.arm import *
 from monk.symbols.structs import *
 from monk.utils.helpers import as_string
+from monk.symbols.lookup import lookup
 
 
 _shutdown_flag = False
@@ -139,13 +140,18 @@ def test_proc_tracing():
     h1 = hooks.OnProcessScheduled(callback=cb_save_procname)
     h2 = hooks.OnProcessExecute('sh', callback=cb_on_exec)
 
+    print("_on_switch_to: %s" % hex(lookup("__switch_to")))
+
     control.run()
     wait_for_signal()
 
     print("Finished waiting for signal")
 
+    f = open('trace.txt', 'w+')
+
     while proc_name == 'sh':
-        print(hex(memreader.get_reg('pc')))
+        f.write(f"{hex(memreader.get_reg('pc'))}\n")
+        f.flush()  # In case we ctrl+c, contents will still be written out
         control.step()
 
     control.shutdown()

@@ -174,7 +174,6 @@ def _callback_handler(callbacks):
         t = threading.Thread(target=callback)
         t.start()
         t.join()
-#        callback()
 
     logging.getLogger(__name__).debug("callbacks done.")
 
