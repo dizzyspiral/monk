@@ -1,111 +1,98 @@
-import socket
-import re
-import xml.etree.ElementTree as ET
-from queue import Queue
-import threading
-import selectors
-
 from monk.backends.rsp_helpers.rsp_target import RspTarget, RspTargetError
 
-_rsp_target = None  # After initialization, this is a GdbRsp object with a connection to the target
+# This should be a subclass of an abstract class Backend, enforcing that all backends
+# have the same API
+class Rsp():
+    def __init__(self, host, port):
+        self._rsp_target = RspTarget(host, port)
 
-# === Public API ===
+    def shutdown(self):
+        self._rsp_target.close()
 
-# Initialization
+    # Reading memory
 
-def initialize():
-    global _rsp_target
+    def get_reg(self, regname):
+        return self._rsp_target.read_register(regname)
 
-    if not _rsp_target:
-        _rsp_target = RspTarget('localhost', 1234)
+    def read_uint8(self, addr):
+        return self._rsp_target.read_memory(addr, 1)
 
-def shutdown():
-    _rsp_target.close()
+    def read_uint16(self, addr):
+        return self._rsp_target.read_memory(addr, 2)
 
-# Reading memory
+    def read_uint32(self, addr):
+        return self._rsp_target.read_memory(addr, 4)
 
-def get_reg(regname):
-    return _rsp_target.read_register(regname)
+    def read_uint64(self, addr):
+        return self._rsp_target.read_memory(addr, 8)
 
-def read_uint8(addr):
-    return _rsp_target.read_memory(addr, 1)
+    # Writing memory
 
-def read_uint16(addr):
-    return _rsp_target.read_memory(addr, 2)
+    def write_reg(self, regname, val):
+        self._rsp_target.write_register(regname, val)
 
-def read_uint32(addr):
-    return _rsp_target.read_memory(addr, 4)
+    def write_uint8(self, addr, val):
+        self._rsp_target.write_memory(addr, val, 1)
 
-def read_uint64(addr):
-    return _rsp_target.read_memory(addr, 8)
+    def write_uint16(self, addr, val):
+        self._rsp_target.write_memory(addr, val, 2)
 
-# Writing memory
+    def write_uint32(self, addr, val_):
+        self._rsp_target.write_memory(addr, val, 4)
 
-def write_reg(regname, val):
-    _rsp_target.write_register(regname, val)
+    def write_uint64(self, addr, val):
+        self._rsp_target.write_memory(addr, val, 8)
 
-def write_uint8(addr, val):
-    _rsp_target.write_memory(addr, val, 1)
+    # Target control
 
-def write_uint16(addr, val):
-    _rsp_target.write_memory(addr, val, 2)
+    def run(self):
+        self._rsp_target.cmd_continue()
 
-def write_uint32(addr, val_):
-    _rsp_target.write_memory(addr, val, 4)
+    def stop(self):
+        self._rsp_target.cmd_stop()
 
-def write_uint64(addr, val):
-    _rsp_target.write_memory(addr, val, 8)
+    def step(self):
+        self._rsp_target.cmd_step()
 
-# Target control
+    def set_read_breakpoint(self, addr):
+        self._rsp_target.set_read_watchpoint(addr)
 
-def run():
-    _rsp_target.cmd_continue()
+    def set_write_breakpoint(self, addr):
+        self._rsp_target.set_write_watchpoint(addr)
 
-def stop():
-    _rsp_target.cmd_stop()
+    def set_access_breakpoint(self, addr):
+        self._rsp_target.set_access_watchpoint(addr)
 
-def step():
-    _rsp_target.cmd_step()
+    def set_exec_breakpoint(self, addr):
+        self._rsp_target.set_sw_breakpoint(addr)
+    #    self._rsp_target.set_hw_breakpoint(addr)
 
-def set_read_breakpoint(addr):
-    _rsp_target.set_read_watchpoint(addr)
+    def del_read_breakpoint(self, addr):
+        self._rsp_target.remove_read_breakpoint(addr)
 
-def set_write_breakpoint(addr):
-    _rsp_target.set_write_watchpoint(addr)
+    def del_write_breakpoint(self, addr):
+        self._rsp_target.remove_write_breakpoint(addr)
 
-def set_access_breakpoint(addr):
-    _rsp_target.set_access_watchpoint(addr)
+    def del_access_breakpoint(self, addr):
+        self._rsp_target.remove_access_breakpoint(addr)
 
-def set_exec_breakpoint(addr):
-    _rsp_target.set_sw_breakpoint(addr)
-#    _rsp_target.set_hw_breakpoint(addr)
+    def del_exec_breakpoint(self, addr):
+        try:
+            self._rsp_target.remove_sw_breakpoint(addr)
+        except RspTargetError:
+            # Sometimes the target returns an error even though it removed the breakpoint just fine. Ignore it.
+            pass
 
-def del_read_breakpoint(addr):
-    _rsp_target.remove_read_breakpoint(addr)
+    # Stop events notification
 
-def del_write_breakpoint(addr):
-    _rsp_target.remove_write_breakpoint(addr)
+    def set_on_read_callback(self, callback):
+        self._rsp_target.on_read = callback
 
-def del_access_breakpoint(addr):
-    _rsp_target.remove_access_breakpoint(addr)
+    def set_on_write_callback(self, callback):
+        self._rsp_target.on_write = callback
 
-def del_exec_breakpoint(addr):
-    try:
-        _rsp_target.remove_sw_breakpoint(addr)
-    except RspTargetError:
-        # Sometimes the target returns an error even though it removed the breakpoint just fine. Ignore it.
-        pass
+    def set_on_access_callback(self, callback):
+        self._rsp_target.on_access = callback
 
-# Stop events notification
-
-def set_on_read_callback(callback):
-    _rsp_target.on_read = callback
-
-def set_on_write_callback(callback):
-    _rsp_target.on_write = callback
-
-def set_on_access_callback(callback):
-    _rsp_target.on_access = callback
-
-def set_on_execute_callback(callback):
-    _rsp_target.on_execute = callback
+    def set_on_execute_callback(self, callback):
+        self._rsp_target.on_execute = callback

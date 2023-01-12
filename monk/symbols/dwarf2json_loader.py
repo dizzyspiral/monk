@@ -22,7 +22,7 @@ class Dwarf2JsonLoader:
 
         return j
 
-    def _populate_types(self):
+    def get_types(self):
         """
         Get the names and sizes of all basic types and save that info to symbols.types.types
         """

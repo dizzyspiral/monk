@@ -316,6 +316,13 @@ def _name_to_camel(name):
 # some nicely intuitive classes that handle reading data out of memory for us, without
 # having to tediously define them all
 
+class Structs():
+    """
+    A class to bind all of the parsed kernel class objects to. Hopefully this works.
+    """
+    def __init__(self, symbols_file):
+        pass
+
 def init(vol_sym_file):
     """ Initialize the kernel classes. Load them from JSON, bind them to this module."""
     global _class_type_map

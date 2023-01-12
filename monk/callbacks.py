@@ -21,13 +21,19 @@ class MonkCallbackError(Exception):
 
 
 class Callback:
-    def __init__(self, callback=None):
+    def __init__(self, callback=None, monk=None):
         """
         Create a new callback.
 
-        :param function cb_func: callback function
-        :param dict bind: dictionary of bound values
+        :param function callback: callback function
+        :param Monk monk: instance of monk
         """
+        # Use the monk instance supplied. If not supplied, use the global instance.
+        if monk:
+            self.monk = monk
+        else:
+            self.monk = Monk.g_monk
+
         # Hooks can be installed/uninstalled by any thread. It's conceivable that they'll be
         # manipulated both by the main thread and callback threads. So, we provide a lock.
         # This lock _should not_ be used by the subclasses, in order to ensure that nobody
@@ -41,7 +47,7 @@ class Callback:
 
     def add_hook(self, symbol, cb):
         self._hook_lock.acquire()
-        h = _on_execute(symbol, cb)
+        h = self._on_execute(symbol, cb)
         self._hooks.append(h)
         self._hook_lock.release()
 
@@ -51,7 +57,7 @@ class Callback:
         self._hook_lock.acquire()
         
         try:
-            remove_callback(hook)
+            self.monk.remove_hook(hook)
         except MonkControlError as e:
             raise MonkCallbackError("Unable to remove hook, hook did not exist") from e
 
@@ -86,6 +92,23 @@ class Callback:
         self._hooks = []
         self._hook_lock.release()
 
+    def _on_execute(symbol, callback):
+        logging.getLogger(__name__).debug("on_execute")
+        if isinstance(symbol, str):
+            logging.getLogger(__name__).debug("looking up symbol '%s'" % symbol)
+            addr = self.monk.symbols.lookup(symbol)
+
+            if not addr:
+                raise MonkHookError("Unable to set hook for symbol '%s', cannot resolve address" % symbol)
+        else:
+            logging.getLogger(__name__).debug("setting hook for address %d" % symbol)
+            addr = symbol
+
+        logging.getLogger(__name__).debug("Adding callback")
+        bp = self.monk.on_execute(addr, callback)
+
+        return bp
+
 
 class OnExecute(Callback):
     def __init__(self, symbol, callback=None):
@@ -118,8 +141,8 @@ class OnProcessScheduled(Callback):
 
 
 class OnProcessExecute(Callback):
-    def __init__(self, proc_name, callback=None):
-        super().__init__(callback)
+    def __init__(self, proc_name, callback=None, monk=None):
+        super().__init__(callback, monk)
         self._proc_name = proc_name
         self.install()
 
@@ -144,21 +167,3 @@ class OnProcessExecute(Callback):
 
     def install(self):
         self._cb_switch_to = self.add_hook("__switch_to", self._on_switch_to)
-
-
-def _on_execute(symbol, callback):
-    logging.getLogger(__name__).debug("on_execute")
-    if isinstance(symbol, str):
-        logging.getLogger(__name__).debug("looking up symbol '%s'" % symbol)
-        addr = lookup(symbol)
-
-        if not addr:
-            raise MonkHookError("Unable to set hook for symbol '%s', cannot resolve address" % symbol)
-    else:
-        logging.getLogger(__name__).debug("setting hook for address %d" % symbol)
-        addr = symbol
-
-    logging.getLogger(__name__).debug("Adding callback")
-    bp = break_on_execute(addr, callback)
-
-    return bp
