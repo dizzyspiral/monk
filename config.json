@@ -1,4 +1,0 @@
-{
-    "dwarf2json": "/path/to/dwarf2json/generated/symbols/file.json",
-    "backend": "rsp"
-}
