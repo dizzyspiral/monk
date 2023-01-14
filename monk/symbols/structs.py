@@ -1,299 +1,319 @@
 import sys
 
 from .dwarf2json_loader import Dwarf2JsonLoader, basic_types, class_types, array_types
-import monk.memory.memreader as memreader
-import monk.memory.memwriter as memwriter
+import monk.memory.self.backend as self.backend
+import monk.memory.self.backend as self.backend
 from monk.utils.helpers import as_string  # for struct __str__ method
 
+class KstructGenerator():
+    def __init__(self, backend):
+        self._class_type_map = {}
+        self._backend = backend
 
-_class_type_map = {}
+    def generate_structs(self, d2json)
+    """ Initialize the kernel classes. Load them from JSON, return a list of them."""
+        structs = []
+
+        for s in d2json.get_defined_struct_names():
+            obj_name = _name_to_camel(s)
+            c = type(obj_name, (object,), {})
+            c.__init__ = self._gen_struct_constructor(c, s, d2json)
+            # Add class to lookup table, for easy resolution in kernel struct properties
+            self._class_type_map[s] = c
+            structs.append((obj_name, c))
+
+        return structs
+    
+    def _get_read_fn(self, size):
+        """
+        Gets the appropriate memory reading function for the size of the data to be read
+
+        :param int size: the size in bytes of the data to be read
+        :returns: The memory read function
+        :rtype: function
+        """
+        if size == 1:
+            return self.backend..read_uint8
+        elif size == 2:
+            return self.backend.read_uint16
+        elif size == 8:
+            return self.backend.read_uint64
+        else:
+            return self.backend.read_uint32
+
+    def _gen_uint_prop(self, offset, size):
+        """
+        Generates a class property getter to read memory
+
+        :returns: The getter function
+        :rtype: function
+        """
+        read_fn = self._get_read_fn(size)
+        return lambda x: read_fn(x.base + offset)
+
+    def _gen_class_prop(self, offset, cls):
+        """
+        Generates a class property getter to interpret memory as a kernel data structure
+
+        :returns: The getter function
+        :rtype: function
+        """
+        return lambda x: cls(x.base + offset)
+
+    def _gen_list_prop(self, offset, elem_size, num_elems):
+        """
+        Generates a class property getter to read a list from memory
+
+        :returns: The getter function
+        :rtype: function
+        """
+        read_fn = self._get_read_fn(elem_size)
+        return lambda x: [read_fn(a) for a in range(x.base + offset, x.base + offset + (num_elems * elem_size), elem_size)]
+
+    def _gen_bitfield_prop(self, offset, field_size, bit_position, bit_length):
+        """
+        Generates a class propety getter to read a bitfield from memory
+
+        :returns: The getter function
+        :rtype: function
+        """
+        read_fn = self._get_read_fn(field_size)
+
+        def read_bits(x):
+            bits = read_fn(x.base + offset)
+            bits << bit_position
+            bits >> field_size - bit_length
+
+            return bits
+
+        return read_bits
+
+    def _gen_null_prop(self):
+        """
+        Generates a function for a class property that returns None. Used for struct 
+        fields that are parsed out of the JSON, but whose type is either not supported 
+        or could not be discerned.
+
+        :returns: function that always returns None
+        :rtype: function
+        """
+        return lambda x: None
 
 
-def _get_read_fn(size):
-    """
-    Gets the appropriate memory reading function for the size of the data to be read
+    # --- write functions ---
 
-    :param int size: the size in bytes of the data to be read
-    :returns: The memory read function
-    :rtype: function
-    """
-    if size == 1:
-        return memreader.read_uint8
-    elif size == 2:
-        return memreader.read_uint16
-    elif size == 8:
-        return memreader.read_uint64
-    else:
-        return memreader.read_uint32
+    def _get_write_fn(self, size):
+        """
+        Gets the appropriate memory reading function for the size of the data to be read
 
-def _gen_uint_prop(offset, size):
-    """
-    Generates a class property getter to read memory
+        :param int size: the size in bytes of the data to be read
+        :returns: The memory read function
+        :rtype: function
+        """
+        if size == 1:
+            return self.backend.write_uint8
+        elif size == 2:
+            return self.backend.write_uint16
+        elif size == 8:
+            return self.backend.write_uint64
+        else:
+            return self.backend.write_uint32
 
-    :returns: The getter function
-    :rtype: function
-    """
-    read_fn = _get_read_fn(size)
-    return lambda x: read_fn(x.base + offset)
+    def _gen_uint_setter(self, offset, size):
+        """
+        Generates a class property getter to read memory
 
-def _gen_class_prop(offset, cls):
-    """
-    Generates a class property getter to interpret memory as a kernel data structure
+        :returns: The getter function
+        :rtype: function
+        """
+        write_fn = self._get_write_fn(size)
+        return lambda x, y: write_fn(x.base + offset, y)
 
-    :returns: The getter function
-    :rtype: function
-    """
-    return lambda x: cls(x.base + offset)
+    def _gen_class_setter(self, offset, cls):
+        """
+        Generates a class property getter to interpret memory as a kernel data structure
 
-def _gen_list_prop(offset, elem_size, num_elems):
-    """
-    Generates a class property getter to read a list from memory
+        :returns: The getter function
+        :rtype: function
+        """
+        # This is only useful (with my limited creativity, anyway) if you want to set a
+        # struct's member struct to be equal to that of a different, already-instantiated
+        # struct with a different base address. E.g., copy one tasks's thread_info to 
+        # another task. For this reason, we ignore the base address of newstruct and just 
+        # copy its members, one by one, into memory at the correct offset.
+        def write_struct(self, newstruct):
+            if not type(newstruct) == cls:
+                print("Cannot overwrite struct of type '%s' with type '%s'", (type(newstruct), str(cls)))
+                return
 
-    :returns: The getter function
-    :rtype: function
-    """
-    read_fn = _get_read_fn(elem_size)
-    return lambda x: [read_fn(a) for a in range(x.base + offset, x.base + offset + (num_elems * elem_size), elem_size)]
+            member_struct = cls(self.base + offset)
+            print(newstruct.__dict__)
 
-def _gen_bitfield_prop(offset, field_size, bit_position, bit_length):
-    """
-    Generates a class propety getter to read a bitfield from memory
+            for field in newstruct.__dir__():
+                if not field.startswith('_') and not field.endswith('_offset') and field not in ('base', 'name'):
+                    setattr(member_struct, field, getattr(newstruct, field))
 
-    :returns: The getter function
-    :rtype: function
-    """
-    read_fn = _get_read_fn(field_size)
+        return write_struct
 
-    def read_bits(x):
-        bits = read_fn(x.base + offset)
-        bits << bit_position
-        bits >> field_size - bit_length
+    def _gen_list_setter(self, offset, elem_size, num_elems):
+        """
+        Generates a class property getter to read a list from memory
 
-        return bits
+        :returns: The getter function
+        :rtype: function
+        """
+        write_fn = self._get_write_fn(elem_size)
 
-    return read_bits
+        def write_list(x, val):
+            i = 0;
 
-def _gen_null_prop():
-    """
-    Generates a function for a class property that returns None. Used for struct 
-    fields that are parsed out of the JSON, but whose type is either not supported 
-    or could not be discerned.
+            for addr in range(x.base + offset, x.base + offset + (num_elems * elem_size), elem_size):
+                if i < len(val):
+                    write_fn(addr, val[i])
 
-    :returns: function that always returns None
-    :rtype: function
-    """
-    return lambda x: None
+                i += 1
+                
+        return write_list
 
+    def _gen_bitfield_setter(self, offset, field_size, bit_position, bit_length):
+        read_fn = self._get_read_fn(field_size)
+        write_fn = self._get_write_fn(field_size)
 
-# --- write functions ---
+        def set_bits(x, val):
+            # Get the current value for the full bitfield
+            bits = read_fn(x.base + offset)
 
-def _get_write_fn(size):
-    """
-    Gets the appropriate memory reading function for the size of the data to be read
+            # Make the bitmask to clear the bits... this has got to be a dumb/slow way, but I don't
+            # have a better idea right now.
+            mask = 0
+            for i in range(bit_length):
+                mask += 2 ** i
 
-    :param int size: the size in bytes of the data to be read
-    :returns: The memory read function
-    :rtype: function
-    """
-    if size == 1:
-        return memwriter.write_uint8
-    elif size == 2:
-        return memwriter.write_uint16
-    elif size == 8:
-        return memwriter.write_uint64
-    else:
-        return memwriter.write_uint32
+            # Clear the bits we want to set
+            bits = bits & mask
 
-def _gen_uint_setter(offset, size):
-    """
-    Generates a class property getter to read memory
+            # Shift val into the correct bit position
+            val << bit_position
 
-    :returns: The getter function
-    :rtype: function
-    """
-    write_fn = _get_write_fn(size)
-    return lambda x, y: write_fn(x.base + offset, y)
+            # Set the bits with val
+            bits = bits | val
 
-def _gen_class_setter(offset, cls):
-    """
-    Generates a class property getter to interpret memory as a kernel data structure
+            # Write the new bitfield
+            write_fn(x.base + offset, bits)
 
-    :returns: The getter function
-    :rtype: function
-    """
-    # This is only useful (with my limited creativity, anyway) if you want to set a
-    # struct's member struct to be equal to that of a different, already-instantiated
-    # struct with a different base address. E.g., copy one tasks's thread_info to 
-    # another task. For this reason, we ignore the base address of newstruct and just 
-    # copy its members, one by one, into memory at the correct offset.
-    def write_struct(self, newstruct):
-        if not type(newstruct) == cls:
-            print("Cannot overwrite struct of type '%s' with type '%s'", (type(newstruct), str(cls)))
-            return
+        return set_bits
 
-        member_struct = cls(self.base + offset)
-        print(newstruct.__dict__)
+    def _gen_null_setter(self, ):
+        """
+        Generates a function for a class property that returns None. Used for struct 
+        fields that are parsed out of the JSON, but whose type is either not supported 
+        or could not be discerned.
 
-        for field in newstruct.__dir__():
-            if not field.startswith('_') and not field.endswith('_offset') and field not in ('base', 'name'):
-                setattr(member_struct, field, getattr(newstruct, field))
+        :returns: None
+        :rtype: None
+        """
+        return lambda x, y: None
 
-    return write_struct
+    def _gen_str_method(self, attr_list):
+        """
+        Generates the __str__ method for the kernel structure, to pretty-print each of
+        its members according to their types.
+        """
 
-def _gen_list_setter(offset, elem_size, num_elems):
-    """
-    Generates a class property getter to read a list from memory
+        def to_str(self):
+            s = f"{self.name}: base:{hex(self.base)}\n"
+            s += "=====\n"
+            for attr, attr_type in attr_list:
+                if attr_type in basic_types:
+                    s += f"{attr}: {hex(getattr(self, attr))}\n"
+                elif attr_type in class_types:
+                    cls = getattr(self, attr)
+                    s += f"{attr} ({cls.name}): {hex(cls.base)}\n"
+                elif attr_type in array_types:
+                    arr = getattr(self, attr)
+                    s += f"{attr}: {arr}"
+                    try:
+                        s += f", as string: {as_string(arr)}\n"
+                    except OverflowError:
+                        s += "\n"
+                elif attr_type == 'bitfield':
+                    s += f"{attr}: {hex(getattr(self, attr))}\n"
+                else:
+                    s += f"{attr}: null\n"
 
-    :returns: The getter function
-    :rtype: function
-    """
-    write_fn = _get_write_fn(elem_size)
+            return s
 
-    def write_list(x, val):
-        i = 0;
+        return to_str
 
-        for addr in range(x.base + offset, x.base + offset + (num_elems * elem_size), elem_size):
-            if i < len(val):
-                write_fn(addr, val[i])
+    def _gen_struct_constructor(self, cls, name, d2json):
+        """
+        Binds cls and name to a constructor for a kernel struct, and returns that constructor
 
-            i += 1
-            
-    return write_list
+        :returns: The class constructor
+        :rtype: function
+        """
+        def struct_constructor(self, base):
+            self.base = base
+            self.name = name
 
-def _gen_bitfield_setter(offset, field_size, bit_position, bit_length):
-    read_fn = _get_read_fn(field_size)
-    write_fn = _get_write_fn(field_size)
+            # Logically speaking, the attributes for a struct's class could/should be created
+            # prior to invoking its constructor. But, doing it here lets us defer creation of
+            # them until instantiation, which is useful because attributes which are
+            # themselves other structs need to have those other structs defined before the
+            # attribute can be created. This isn't the best way to solve that problem - we
+            # should just do a define pass on the structs, and then an attribute assignment
+            # pass, but whatever, this is how it turned out for now.
 
-    def set_bits(x, val):
-        # Get the current value for the full bitfield
-        bits = read_fn(x.base + offset)
+            attr_list = []
 
-        # Make the bitmask to clear the bits... this has got to be a dumb/slow way, but I don't
-        # have a better idea right now.
-        mask = 0
-        for i in range(bit_length):
-            mask += 2 ** i
+            # For every field defined for this struct
+            for field, attributes in d2json.get_struct_fields(self.name).items():
+                field_type = d2json.get_field_type(attributes)
+                offset = d2json.get_field_offset(attributes)
 
-        # Clear the bits we want to set
-        bits = bits & mask
+                attr_list.append((field, field_type))
 
-        # Shift val into the correct bit position
-        val << bit_position
+                # Generate the appropriate getter for the data type. If the type is a union 
+                # or a struct, this will create an instance of the class for the kernel data
+                # structure by looking up the class from the class map generated by the class 
+                # auto-generation process. Otherwise, the getter will invoke GDB to read 
+                # memory and return the value read in the format most intuitive for the data 
+                # type. Note that memory is read each time the attribute is accessed. Further 
+                # note that arrays are represented as lists, regardless of whether they are 
+                # char arrays (because char does not always *really* represent a character). 
+                # If you want to interpret an array of characters as a string, you will need 
+                # to convert it. A helper function for this is provided in state.helpers.
+                if field_type in basic_types:
+                    size = d2json.get_base_type_size(d2json.get_base_type_name(attributes))
+                    setattr(cls, field, 
+                            property(self._gen_uint_prop(offset, size),
+                                     self._gen_uint_setter(offset, size)))
+                elif field_type in class_types:
+                    c = _class_type_map[d2json.get_struct_name(attributes)]
+                    setattr(cls, field,
+                            property(self._gen_class_prop(offset, c),
+                                     self._gen_class_setter(offset, c)))
+                elif field_type in array_types:
+                    num_elems = d2json.get_array_count(attributes)
+                    elem_size = d2json.get_base_type_size(d2json.get_array_type(attributes))
+                    setattr(cls, field, 
+                            property(self._gen_list_prop(offset, elem_size, num_elems),
+                                     self._gen_list_setter(offset, elem_size, num_elems)))
+                elif field_type == 'bitfield':
+                    # XXX IN PROGRESS
+                    base_type, bit_position, bit_length = d2json.get_bitfield_info(attributes)
+                    field_size = d2json.get_base_type_size(base_type)
+                    setattr(cls, field, 
+                            property(self._gen_bitfield_prop(offset, field_size, bit_position, bit_length),
+                                     self._gen_bitfield_setter(offset, field_size, bit_position, bit_length)))
+                else:
+                    setattr(cls, field, property(self._gen_null_prop(), self._gen_null_setter()))
 
-        # Set the bits with val
-        bits = bits | val
+                setattr(cls, "{}_offset".format(field), offset)
+                setattr(cls, "__str__", self._gen_str_method(attr_list))
 
-        # Write the new bitfield
-        write_fn(x.base + offset, bits)
+        return struct_constructor
 
-    return set_bits
-
-def _gen_null_setter():
-    """
-    Generates a function for a class property that returns None. Used for struct 
-    fields that are parsed out of the JSON, but whose type is either not supported 
-    or could not be discerned.
-
-    :returns: None
-    :rtype: None
-    """
-    return lambda x, y: None
-
-def _gen_str_method(attr_list):
-    """
-    Generates the __str__ method for the kernel structure, to pretty-print each of
-    its members according to their types.
-    """
-
-    def to_str(self):
-        s = f"{self.name}: base:{hex(self.base)}\n"
-        s += "=====\n"
-        for attr, attr_type in attr_list:
-            if attr_type in basic_types:
-                s += f"{attr}: {hex(getattr(self, attr))}\n"
-            elif attr_type in class_types:
-                cls = getattr(self, attr)
-                s += f"{attr} ({cls.name}): {hex(cls.base)}\n"
-            elif attr_type in array_types:
-                arr = getattr(self, attr)
-                s += f"{attr}: {arr}"
-                try:
-                    s += f", as string: {as_string(arr)}\n"
-                except OverflowError:
-                    s += "\n"
-            elif attr_type == 'bitfield':
-                s += f"{attr}: {hex(getattr(self, attr))}\n"
-            else:
-                s += f"{attr}: null\n"
-
-        return s
-
-    return to_str
-
-def _gen_struct_constructor(cls, name, d2json):
-    """
-    Binds cls and name to a constructor for a kernel struct, and returns that constructor
-
-    :returns: The class constructor
-    :rtype: function
-    """
-    def struct_constructor(self, base):
-        self.base = base
-        self.name = name
-
-        # Logically speaking, the attributes for a struct's class could/should be created
-        # prior to invoking its constructor. But, doing it here lets us defer creation of
-        # them until instantiation, which is useful because attributes which are
-        # themselves other structs need to have those other structs defined before the
-        # attribute can be created. This isn't the best way to solve that problem - we
-        # should just do a define pass on the structs, and then an attribute assignment
-        # pass, but whatever, this is how it turned out for now.
-
-        attr_list = []
-
-        # For every field defined for this struct
-        for field, attributes in d2json.get_struct_fields(self.name).items():
-            field_type = d2json.get_field_type(attributes)
-            offset = d2json.get_field_offset(attributes)
-
-            attr_list.append((field, field_type))
-
-            # Generate the appropriate getter for the data type. If the type is a union 
-            # or a struct, this will create an instance of the class for the kernel data
-            # structure by looking up the class from the class map generated by the class 
-            # auto-generation process. Otherwise, the getter will invoke GDB to read 
-            # memory and return the value read in the format most intuitive for the data 
-            # type. Note that memory is read each time the attribute is accessed. Further 
-            # note that arrays are represented as lists, regardless of whether they are 
-            # char arrays (because char does not always *really* represent a character). 
-            # If you want to interpret an array of characters as a string, you will need 
-            # to convert it. A helper function for this is provided in state.helpers.
-            if field_type in basic_types:
-                size = d2json.get_base_type_size(d2json.get_base_type_name(attributes))
-                setattr(cls, field, property(_gen_uint_prop(offset, size), _gen_uint_setter(offset, size)))
-            elif field_type in class_types:
-                c = _class_type_map[d2json.get_struct_name(attributes)]
-                setattr(cls, field, property(_gen_class_prop(offset, c), _gen_class_setter(offset, c)))
-            elif field_type in array_types:
-                num_elems = d2json.get_array_count(attributes)
-                elem_size = d2json.get_base_type_size(d2json.get_array_type(attributes))
-                setattr(cls, field, 
-                        property(_gen_list_prop(offset, elem_size, num_elems),
-                                 _gen_list_setter(offset, elem_size, num_elems)))
-            elif field_type == 'bitfield':
-                # XXX IN PROGRESS
-                base_type, bit_position, bit_length = d2json.get_bitfield_info(attributes)
-                field_size = d2json.get_base_type_size(base_type)
-                setattr(cls, field, 
-                        property(_gen_bitfield_prop(offset, field_size, bit_position, bit_length),
-                                 _gen_bitfield_setter(offset, field_size, bit_position, bit_length)))
-            else:
-                setattr(cls, field, property(_gen_null_prop(), _gen_null_setter()))
-
-            setattr(cls, "{}_offset".format(field), offset)
-            setattr(cls, "__str__", _gen_str_method(attr_list))
-
-    return struct_constructor
 
 def _name_to_camel(name):
     """
@@ -320,23 +340,10 @@ class Structs():
     """
     A class to bind all of the parsed kernel class objects to. Hopefully this works.
     """
-    def __init__(self, symbols_file):
-        pass
+    def __init__(self, d2json, backend):
+        # Generate all of the kernel struct classes
+        kernel_structs = KstructGenerator(backend).generate_structs(d2json)
 
-def init(vol_sym_file):
-    """ Initialize the kernel classes. Load them from JSON, bind them to this module."""
-    global _class_type_map
-
-    self_ref = sys.modules[__name__]
-    d2json = Dwarf2JsonLoader(vol_sym_file)
-
-    for s in d2json.get_defined_struct_names():
-        obj_name = _name_to_camel(s)
-
-        c = type(obj_name, (object,), {})
-        c.__init__ = _gen_struct_constructor(c, s, d2json)
-
-        # Add class to lookup table, for easy resolution in kernel struct properties
-        _class_type_map[s] = c
-        # Add class binding to this module, to expose to importers
-        setattr(self_ref, obj_name, c)
+        # Bind them to this class as subclasses
+        for struct, name in kernel_structs:
+            setattr(self, name, struct)

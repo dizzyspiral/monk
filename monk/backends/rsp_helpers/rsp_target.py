@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 import threading
 from queue import Empty
 from time import sleep
-from signal import Signals
+import signal
 import logging
 
 from monk.backends.rsp_helpers.gdbrsp import GdbRsp
@@ -662,9 +662,9 @@ class RspTarget():
             signal_code = int(packet[1:3])
             logging.getLogger(__name__).debug("__get_stop_reason() signal code = %s" % signal_code)
 
-            if signal_code == Signals.SIGINT.value:
+            if signal_code == signal.SIGINT.value:
                 logging.getLogger(__name__).debug("SIGINT")
-            elif signal_code == Signals.SIGTRAP.value:
+            elif signal_code == signal.SIGTRAP.value:
                 logging.getLogger(__name__).debug("SIGTRAP")
                 # Request the stop reason from the target
                 self._rsp_lock.acquire()
@@ -730,7 +730,7 @@ def _decode_stop_reason(signal_code):
     stop_reason = None
 
     # TODO: Implement the required checks to figure out when read/write watchpoints are hit
-    if signal_code == Signals.SIGTRAP.value:
+    if signal_code == signal.SIGTRAP.value:
         stop_reason = StopReasons.swbreak
 
     return stop_reason

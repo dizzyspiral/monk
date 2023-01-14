@@ -1,5 +1,7 @@
+import backends
+
 class Monk():
-    def __init__(self, host='localhost', port=1234, symbols=None, backend=monk.backends.rsp):
+    def __init__(self, host='localhost', port=1234, symbols=None, backend=backends.rsp):
         """
         Creates a new Monk instance connected to the target specified by host and port.
 
