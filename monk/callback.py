@@ -1,16 +1,6 @@
 import logging
 import threading
 
-from monk.forensics.linux import get_user_regs, get_kernel_regs, get_proc_name
-from monk.memory.memreader import get_reg
-from monk.execution.control import break_on_execute, remove_callback, MonkControlError
-from monk.symbols.structs import ThreadInfo
-from monk.symbols.lookup import lookup
-from monk.symbols.uregs.arm import *
-
-#UREGS_SP = None  # TODO: fix this to be the right number.
-#UREGS_PC = None
-
 
 class MonkHookError(Exception):
     pass
@@ -21,18 +11,21 @@ class MonkCallbackError(Exception):
 
 
 class Callback:
-    def __init__(self, callback=None, monk=None):
+    def __init__(self, target, callback=None):
         """
         Create a new callback.
 
         :param function callback: callback function
-        :param Monk monk: instance of monk
+        :param Monk target: instance of monk
         """
         # Use the monk instance supplied. If not supplied, use the global instance.
-        if monk:
-            self.monk = monk
-        else:
-            self.monk = Monk.g_monk
+        #if monk:
+        #    self.monk = monk
+        #else:
+        #    self.monk = monk.g_monk
+
+        # XXX Fix internal self.monk naming to be self.target, to match naming convention
+        self.target = target
 
         # Hooks can be installed/uninstalled by any thread. It's conceivable that they'll be
         # manipulated both by the main thread and callback threads. So, we provide a lock.
@@ -57,7 +50,7 @@ class Callback:
         self._hook_lock.acquire()
         
         try:
-            self.monk.remove_hook(hook)
+            self.target.remove_hook(hook)
         except MonkControlError as e:
             raise MonkCallbackError("Unable to remove hook, hook did not exist") from e
 
@@ -96,7 +89,7 @@ class Callback:
         logging.getLogger(__name__).debug("on_execute")
         if isinstance(symbol, str):
             logging.getLogger(__name__).debug("looking up symbol '%s'" % symbol)
-            addr = self.monk.symbols.lookup(symbol)
+            addr = self.target.symbols.lookup(symbol)
 
             if not addr:
                 raise MonkHookError("Unable to set hook for symbol '%s', cannot resolve address" % symbol)
@@ -105,65 +98,6 @@ class Callback:
             addr = symbol
 
         logging.getLogger(__name__).debug("Adding callback")
-        bp = self.monk.on_execute(addr, callback)
+        bp = self.target.on_execute(addr, callback)
 
         return bp
-
-
-class OnExecute(Callback):
-    def __init__(self, symbol, callback=None):
-        super().__init__(callback)
-        self._symbol = symbol
-        self.install()
-
-    def install(self):
-        self.add_hook(self._symbol, self.run)
-
-
-class OnProcessScheduled(Callback):
-    def __init__(self, proc_name=None, callback=None):
-        super().__init__(callback)
-        self._proc_name = proc_name
-        self.install()
-
-    def install(self):
-        self.add_hook("__switch_to", self._on_switch_to)
-
-    def _on_switch_to(self):
-        print("_on_switch_to")
-        if not self._proc_name:
-            self.run()
-        else:
-            next_thread = get_reg('r2')
-
-            if get_proc_name(next_thread) == self._proc_name:
-                self.run()
-
-
-class OnProcessExecute(Callback):
-    def __init__(self, proc_name, callback=None, monk=None):
-        super().__init__(callback, monk)
-        self._proc_name = proc_name
-        self.install()
-
-    def _on_switch_to(self):
-        next_thread = get_reg('r2')
-
-        if get_proc_name(next_thread) == self._proc_name:
-            t = ThreadInfo(next_thread)
-            
-            # addr_limit is the highest userspace address a process can access; if it's 0,
-            # then this is a kernel process. If not, then it's a userspace process.
-            if t.addr_limit > 0x0:
-                saved_pc = get_user_regs(sp=t.cpu_context.sp)[UREGS_PC]
-                self._cb_proc_exec = self.add_hook(saved_pc, self._on_proc_exec)
-            else:
-                saved_regs = get_kernel_regs()
-                self._cb_proc_exec = self.add_hook(saved_regs.pc, self._on_proc_exec)
-
-    def _on_proc_exec(self):
-        self.remove_hook(self._cb_proc_exec)
-        self.run()
-
-    def install(self):
-        self._cb_switch_to = self.add_hook("__switch_to", self._on_switch_to)

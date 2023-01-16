@@ -1,8 +1,6 @@
 import sys
 
-from .dwarf2json_loader import Dwarf2JsonLoader, basic_types, class_types, array_types
-import monk.memory.self.backend as self.backend
-import monk.memory.self.backend as self.backend
+from .dwarf2json_loader import basic_types, class_types, array_types
 from monk.utils.helpers import as_string  # for struct __str__ method
 
 class KstructGenerator():
@@ -10,8 +8,8 @@ class KstructGenerator():
         self._class_type_map = {}
         self._backend = backend
 
-    def generate_structs(self, d2json)
-    """ Initialize the kernel classes. Load them from JSON, return a list of them."""
+    def generate_structs(self, d2json):
+        """ Initialize the kernel classes. Load them from JSON, return a list of them."""
         structs = []
 
         for s in d2json.get_defined_struct_names():
@@ -33,7 +31,7 @@ class KstructGenerator():
         :rtype: function
         """
         if size == 1:
-            return self.backend..read_uint8
+            return self.backend.read_uint8
         elif size == 2:
             return self.backend.read_uint16
         elif size == 8:

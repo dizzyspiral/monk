@@ -1,7 +1,7 @@
-import backends
+import monk.backends as backends
 
 class Monk():
-    def __init__(self, host='localhost', port=1234, symbols=None, backend=backends.rsp):
+    def __init__(self, host='localhost', port=1234, symbols=None, backend='rsp'):
         """
         Creates a new Monk instance connected to the target specified by host and port.
 
@@ -12,7 +12,7 @@ class Monk():
         """
         # Should prob do some error checking that backend is actually a class, and if not,
         # search the "backends" directory for a module matching the supplied value
-        self._backend = backend(host, port)
+        self._backend = backends.backend_map[backend](host, port)
         self._callback_manager = CallbackManager(self._backend)
         self.symbols = Symbols(symbols, self._backend)
         self.structs = self.symbols.structs
