@@ -1,2 +1,1 @@
-import monk.symbols.structs as structs
-import monk.symbols.lookup as lookup
+from monk.symbols.symbols import Symbols

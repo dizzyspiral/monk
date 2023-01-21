@@ -13,7 +13,6 @@ array_types = ['array']
 class Dwarf2JsonLoader:
     def __init__(self, jsonfile):
         self._json = self._load_json(jsonfile)
-        self._populate_types()
 
     def _load_json(self, jsonfile):
         with open(jsonfile) as f:

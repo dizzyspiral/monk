@@ -85,7 +85,7 @@ class Callback:
         self._hooks = []
         self._hook_lock.release()
 
-    def _on_execute(symbol, callback):
+    def _on_execute(self, symbol, callback):
         logging.getLogger(__name__).debug("on_execute")
         if isinstance(symbol, str):
             logging.getLogger(__name__).debug("looking up symbol '%s'" % symbol)

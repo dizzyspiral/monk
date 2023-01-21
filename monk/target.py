@@ -1,4 +1,6 @@
 import monk.backends as backends
+from monk.callback_manager import CallbackManager
+from monk.symbols import Symbols
 
 class Monk():
     def __init__(self, host='localhost', port=1234, symbols=None, backend='rsp'):
@@ -20,49 +22,49 @@ class Monk():
 
     # === Memory ===
     # Read
-    def read_uint8(addr):
+    def read_uint8(self, addr):
         return self._backend.read_uint8(addr)
 
-    def read_uint16(addr):
+    def read_uint16(self, addr):
         return self._backend.read_uint16(addr)
 
-    def read_uint32(addr):
+    def read_uint32(self, addr):
         return self._backend.read_uint32(addr)
 
-    def read_uint64(addr):
+    def read_uint64(self, addr):
         return self._backend.read_uint64(addr)
 
-    def get_reg(regname):
+    def get_reg(self, regname):
         return self._backend.get_reg(regname)
 
     # Write
-    def write_uint8(addr, val):
+    def write_uint8(self, addr, val):
         self._backend.write_uint8(addr, val)
 
-    def write_uint16(addr, val):
+    def write_uint16(self, addr, val):
         self._backend.write_uint16(addr, val)
 
-    def write_uint32(addr, val):
+    def write_uint32(self, addr, val):
         self._backend.write_uint32(addr, val)
 
-    def write_uint64(addr, val):
+    def write_uint64(self, addr, val):
         self._backend.write_uint64(addr, val)
 
-    def write_reg(regname, val):
+    def write_reg(self, regname, val):
         self._backend.write_reg(regname, val)
 
     # === Execution ===
     # Control
-    def run():
+    def run(self):
         self._backend.run()
 
-    def stop():
+    def stop(self):
         self._backend.stop()
 
-    def step():
+    def step(self):
         self._backend.step()
 
-    def shutdown():
+    def shutdown(self):
         self._backend.shutdown()
 
     # Hooks

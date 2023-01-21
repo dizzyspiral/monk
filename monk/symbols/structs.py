@@ -343,5 +343,5 @@ class Structs():
         kernel_structs = KstructGenerator(backend).generate_structs(d2json)
 
         # Bind them to this class as subclasses
-        for struct, name in kernel_structs:
+        for name, struct in kernel_structs:
             setattr(self, name, struct)

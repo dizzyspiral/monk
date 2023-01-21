@@ -139,17 +139,17 @@ class CallbackManager():
 
     # Signal handlers hooked into the backend signals notification functions
     def _on_read_dispatcher(self, addr):
-        self._callback_handler(_on_read_callbacks[addr])
+        self._callback_handler(self._on_read_callbacks[addr])
 
     def _on_write_dispatcher(self, addr):
-        self._callback_handler(_on_write_callbacks[addr])
+        self._callback_handler(self._on_write_callbacks[addr])
 
     def _on_access_dispatcher(self, addr):
-        self._callback_handler(_on_access_callbacks[addr])
+        self._callback_handler(self._on_access_callbacks[addr])
 
     def _on_execute_dispatcher(self, addr):
         logging.getLogger(__name__).debug("_on_execute_dispatcher(%s)" % hex(addr))
-        self._callback_handler(_on_execute_callbacks[addr])
+        self._callback_handler(self._on_execute_callbacks[addr])
 
     def _callback_handler(self, callbacks):
         logging.getLogger(__name__).debug("_callback_handler")
