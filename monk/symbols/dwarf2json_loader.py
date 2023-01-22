@@ -6,6 +6,11 @@ from .types import types
 basic_types = ['pointer', 'base']
 class_types = ['struct', 'union']
 array_types = ['array']
+other_types = ['enum']  # This list is't used so far, but it seemed prudent to catalog the uncategorized types
+
+# Some types have built-in assumptions about what they map to for a base type in the C standard.
+# They're mapped here.
+equivalent_types = {'enum': 'int'}
 
 # XXX The design of this module is fucked.
 
@@ -23,10 +28,14 @@ class Dwarf2JsonLoader:
 
     def get_types(self):
         """
-        Get the names and sizes of all basic types and save that info to symbols.types.types
+        Get the names and sizes of all basic types
         """
+        types = {}
+
         for name, attrs in self._json['base_types'].items():
             types[name] = attrs['size']
+
+        return types
 
     def find_symbol_address(self, symbol):
         try:
@@ -62,6 +71,8 @@ class Dwarf2JsonLoader:
         try:
             return self._json['base_types'][base_type]['size']
         except:
+            # XXX We can probably make a reasonable guess that it's an int... but maybe
+            # the caller should handle that.
             exp_str = "Unable to get size for base type '{}'".format(base_type)
 
         raise Exception(exp_str)
@@ -99,7 +110,14 @@ class Dwarf2JsonLoader:
         return field_attributes['type']['count']
 
     def get_bitfield_info(self, field_attributes):
+        field_type = field_attributes['type']['type']['kind']
         base_type = field_attributes['type']['type']['name']
+
+        # If our base type is actually not a base type, we map it to a base type. E.g. I've
+        # seen bitfields with a type of enum, which is really an int.
+        if field_type not in basic_types:
+            base_type = equivalent_types[field_type]
+
         bit_position = field_attributes['type']['bit_position']
         bit_length = field_attributes['type']['bit_length']
 
