@@ -72,19 +72,19 @@ class Monk():
     # want to. callbacks.py defines the various callback classes, which have a nicer
     # user interface and can be subclassed to do complex tasks more cleanly.
     def on_execute(self, addr, callback):
-        self._callback_manager.on_execute(addr, callback)
+        return self._callback_manager.on_execute(addr, callback)
 
     def on_read(self, addr, callback):
-        self._callback_manager.on_read(addr, callback)
+        return self._callback_manager.on_read(addr, callback)
 
     def on_write(self, addr, callback):
-        self._callback_manager.on_write(addr, callback)
+        return self._callback_manager.on_write(addr, callback)
 
     def on_access(self, addr, callback):
-        self._callback_manager.on_access(addr, callback)
+        return self._callback_manager.on_access(addr, callback)
 
-    def remove_hook(self, addr, callback):
-        self._callback_manager.remove_callback(addr, callback)
+    def remove_hook(self, callback):
+        self._callback_manager.remove_callback(callback)
 
     # === Symbols ===
     # Convenience functions to access the symbols object attributes more directly

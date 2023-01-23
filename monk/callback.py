@@ -1,3 +1,5 @@
+from monk.callback_manager import MonkControlError
+
 import logging
 import threading
 
@@ -87,6 +89,7 @@ class Callback:
 
     def _on_execute(self, symbol, callback):
         logging.getLogger(__name__).debug("on_execute")
+
         if isinstance(symbol, str):
             logging.getLogger(__name__).debug("looking up symbol '%s'" % symbol)
             addr = self.target.symbols.lookup(symbol)

@@ -1,6 +1,6 @@
 from monk import Callback
 from monk_plugins.linux.forensics import get_proc_name, get_user_regs, get_kernel_regs
-
+from monk_plugins.linux.uregs import UREGS_PC
 
 class OnExecute(Callback):
     def __init__(self, target, symbol, callback=None):
@@ -22,7 +22,6 @@ class OnProcessScheduled(Callback):
         self.add_hook("__switch_to", self._on_switch_to)
 
     def _on_switch_to(self):
-        print("_on_switch_to")
         if not self._proc_name:
             self.run()
         else:
@@ -48,11 +47,11 @@ class OnProcessExecute(Callback):
             # then this is a kernel process. If not, then it's a userspace process.
             if t.addr_limit > 0x0:
                 saved_pc = get_user_regs(self.target, sp=t.cpu_context.sp)[UREGS_PC]
-                self._cb_proc_exec = self.add_hook(saved_pc, self._on_proc_exec)
             else:
                 saved_regs = get_kernel_regs(self.target)
+                saved_pc = saved_regs.pc
 
-        self._cb_proc_exec = self.add_hook(saved_regs.pc, self._on_proc_exec)
+            self._cb_proc_exec = self.add_hook(saved_pc, self._on_proc_exec)
 
     def _on_proc_exec(self):
         self.remove_hook(self._cb_proc_exec)

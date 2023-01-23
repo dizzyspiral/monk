@@ -138,7 +138,7 @@ class AttributeGenerator():
 
     def gen_class_setter(self, offset, cls):
         """
-        Generates a class property getter to interpret memory as a kernel data structure
+        Generates a class property setter to interpret memory as a kernel data structure
 
         :returns: The getter function
         :rtype: function
@@ -154,7 +154,6 @@ class AttributeGenerator():
                 return
 
             member_struct = cls(x.base + offset)
-            print(newstruct.__dict__)
 
             for field in newstruct.__dir__():
                 if not field.startswith('_') and not field.endswith('_offset') and field not in ('base', 'name'):
@@ -270,8 +269,6 @@ def _gen_attributes(cls, backend, d2json, class_type_map):
     Generates all of the member attributes for a kernel struct class. Each attribute
     has a getter and setter that reads/writes memory of the target.
     """
-    print(f"Generating attributes for: {cls.name}")
-
     attribute_generator = AttributeGenerator(backend)
     # Logically speaking, the attributes for a struct's class could/should be created
     # prior to invoking its constructor. But, doing it here lets us defer creation of
@@ -285,9 +282,7 @@ def _gen_attributes(cls, backend, d2json, class_type_map):
 
     # For every field defined for this struct
     for field, attributes in d2json.get_struct_fields(cls.name).items():
-        print(f"Generating attribute: {field}")
         field_type = d2json.get_field_type(attributes)
-        print(f"Field type: {field_type}")
         offset = d2json.get_field_offset(attributes)
 
         attr_list.append((field, field_type))
