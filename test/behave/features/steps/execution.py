@@ -1,4 +1,4 @@
-@given('a {state} target')
+@given('the target is {state}')
 def step_impl(context, state):
     # Make sure we have a target first
     context.execute_steps('''
@@ -20,10 +20,17 @@ def step_impl(context, command):
     elif command == 'step':
         pass
 
-@then('the target should still be {state}')
+@then('the target should be {state}')
 def step_impl(context, state):
     if state == 'stopped':
         pass
-    elif state == 'running":
+    elif state == 'running':
         pass
 
+@then('execution should step by one instruction')
+def step_impl(context):
+    pass
+
+@then('an error should be thrown')
+def step_impl(context):
+    pass
