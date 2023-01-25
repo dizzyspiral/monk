@@ -4,10 +4,16 @@ from monk.backends.rsp_helpers.rsp_target import RspTarget, RspTargetError
 # have the same API
 class Rsp():
     def __init__(self, host, port):
+        self.connected = False
+        self.connect(host, port)
+
+    def connect(self, host, port):
         self._rsp_target = RspTarget(host, port)
+        self.connected = True
 
     def shutdown(self):
         self._rsp_target.close()
+        self.connected = False
 
     # Reading memory
 
