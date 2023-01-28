@@ -20,6 +20,10 @@ class Monk():
         self.structs = self.symbols.structs
         self.types = self.symbols.types
 
+    # == Target status ==
+    def is_running(self):
+        return self._backend.target_is_running()
+
     # === Memory ===
     # Read
     def read_uint8(self, addr):

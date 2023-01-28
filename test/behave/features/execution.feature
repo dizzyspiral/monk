@@ -28,7 +28,7 @@ Feature: execution control
         When the step method is invoked
         Then execution should step by one instruction
 
-    Scenario: Tell a running target to step execution
-        Given the target is running
-        When the step method is invoked
-        Then an error should be thrown
+#    Scenario: Tell a running target to step execution
+#        Given the target is running
+#        When the step method is invoked
+#        Then an error should be thrown

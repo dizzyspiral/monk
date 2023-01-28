@@ -15,6 +15,9 @@ class Rsp():
         self._rsp_target.close()
         self.connected = False
 
+    def target_is_running(self):
+        return not self._rsp_target.target_is_stopped
+
     # Reading memory
 
     def get_reg(self, regname):

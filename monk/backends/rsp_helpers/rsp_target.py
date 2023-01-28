@@ -77,7 +77,7 @@ class RspTarget():
         self._clear_rsp()  # Clear out anything that might be in the recv buf
         # We have to figure out if the target is stopped before calling cmd_stop because cmd_stop
         # depends upon that flag.
-        self._target_is_stopped = self._is_target_stopped()
+        self.target_is_stopped = self._is_target_stopped()
         self.cmd_stop()
         self._negotiate_features()
         self._reg_layout, self._reg_map = self._get_reg_layout()
@@ -168,7 +168,7 @@ class RspTarget():
             # And stopping the guest again, while it's already stopped, will change the stop 
             # reason and subsequently change the handlers that get notified.
             logging.getLogger(__name__).debug("_handle_stop_packet target_is_stopped = True")
-            self._target_is_stopped = True
+            self.target_is_stopped = True
             logging.getLogger(__name__).debug("_handle_stop_packet()")
             logging.getLogger(__name__).debug("getting stop reason...")
             bp_type = self._get_stop_reason(packet)
@@ -357,7 +357,7 @@ class RspTarget():
             raise RspTargetError("Callbacks cannot call %s" % cmd_str)
 
         # If the target is running, then there's no reason to send a continue cmd
-        if not self._target_is_stopped:
+        if not self.target_is_stopped:
             logging.getLogger(__name__).debug("Target is not stopped, ignoring %s" % cmd_str)
             return False
 
@@ -451,7 +451,7 @@ class RspTarget():
             self._event_lock.acquire()
 
         self._rsp_lock.acquire()
-        self._target_is_stopped = False
+        self.target_is_stopped = False
         logging.getLogger(__name__).debug("Sending continue cmd")
         self._rsp.send(b'vCont;c')
         logging.getLogger(__name__).debug("Sent continue cmd")
@@ -467,12 +467,12 @@ class RspTarget():
         # as a reply from QEMU when the target is already stopped, but receives no reply if it is
         # running. This is actually annoyingly difficult to handle without causing delays, so we
         # just keep track of whether the target is running so we can avoid it.
-        if self._target_is_stopped:
+        if self.target_is_stopped:
             return
 
         self._event_lock.acquire()
         self._rsp_lock.acquire()
-        self._target_is_stopped = True
+        self.target_is_stopped = True
         self._rsp.send(b'vCtrlC')
 
         # TODO: Check for an error, and unset _user_stopped if it seems like the target didn't
