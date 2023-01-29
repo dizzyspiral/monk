@@ -50,8 +50,9 @@ def after_all(context):
         container.kill()
 
 def before_scenario(context, scenario):
-    # Initialize context.targets
-    context.targets = []
+    context.targets = []  # Holds target connections (Monk objects) for each supported target
+    context.callbacks = []  # Holds any callbacks created for all targets
+    context.prev_pc = {}  # Holds the value of PC before doing some operation for each target
 
 def after_scenario(context, scenario):
     # Clean up context.targets

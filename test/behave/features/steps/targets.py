@@ -20,8 +20,8 @@ def step_impl(context, arch, os, kernel, machine):
 
     m = Monk(
         host='localhost',
-        port=port,
-        symbols=f'test/resources/{context.port_symbols_map[port]}',
+        port=target_port,
+        symbols=f'test/resources/{context.port_symbols_map[target_port]}',
         backend='rsp'
     )
 
