@@ -20,13 +20,6 @@ class Callback:
         :param function callback: callback function
         :param Monk target: instance of monk
         """
-        # Use the monk instance supplied. If not supplied, use the global instance.
-        #if monk:
-        #    self.monk = monk
-        #else:
-        #    self.monk = monk.g_monk
-
-        # XXX Fix internal self.monk naming to be self.target, to match naming convention
         self.target = target
 
         # Hooks can be installed/uninstalled by any thread. It's conceivable that they'll be
@@ -68,7 +61,7 @@ class Callback:
         Run the callback. This function is overriden in the constructor by the
         user-defined cb_func, or defined by a subclass
         """
-        raise MonkCallbackError("Callback not initialized")
+        self.target.stop()
 
     def install(self):
         """
@@ -76,6 +69,10 @@ class Callback:
         of a particular address or symbol. That hook may not directly call run(), though it is
         expected that run() will eventually be called when the event of interest occurs, in order
         to invoke the user-defined callback for the event.
+
+        Note that this function does not have to be implemented, but by convention the subclass
+        should implement install() to allow the user to install and uninstall the callback without
+        re-creating the callback object.
         """
         raise MonkCallbackError("Callback install() not initialized")
 
