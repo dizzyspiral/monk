@@ -84,18 +84,32 @@ class Callback:
         self._hooks = []
         self._hook_lock.release()
 
-    def _on_execute(self, symbol, callback):
-        logging.getLogger(__name__).debug("on_execute")
-
+    def _symbol_to_address(self, symbol):
+        # If string, try looking up symbol (e.g. function name)
         if isinstance(symbol, str):
-            logging.getLogger(__name__).debug("looking up symbol '%s'" % symbol)
             addr = self.target.symbols.lookup(symbol)
 
+            # If lookup failed, maybe it's a hex string
             if not addr:
-                raise MonkHookError("Unable to set hook for symbol '%s', cannot resolve address" % symbol)
+                try:
+                    addr = int(symbol, 16)
+                except:
+                    addr = None
         else:
-            logging.getLogger(__name__).debug("setting hook for address %d" % symbol)
-            addr = symbol
+            # If not string, try casting to int directly
+            try:
+                addr = int(symbol)
+            except:
+                addr = None
+
+        return addr
+
+    def _on_execute(self, symbol, callback):
+        logging.getLogger(__name__).debug("on_execute")
+        addr = self._symbol_to_address(symbol)
+
+        if not symbol:
+            raise MonkHookError("Unable to set hook for symbol '%s', cannot resolve address" % symbol)
 
         logging.getLogger(__name__).debug("Adding callback")
         bp = self.target.on_execute(addr, callback)

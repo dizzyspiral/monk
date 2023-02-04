@@ -5,11 +5,11 @@ from monk_plugins.linux.uregs import UREGS_PC
 class OnExecute(Callback):
     def __init__(self, target, symbol, callback=None):
         super().__init__(target, callback)
-        self._symbol = symbol
+        self.symbol = symbol
         self.install()
 
     def install(self):
-        self.add_hook(self._symbol, self.run)
+        self.add_hook(self.symbol, self.run)
 
 
 class OnProcessScheduled(Callback):

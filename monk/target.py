@@ -24,6 +24,9 @@ class Monk():
     def is_running(self):
         return self._backend.target_is_running()
 
+    def is_stopped(self):
+        return not self._backend.target_is_running()
+
     # === Memory ===
     # Read
     def read_uint8(self, addr):
