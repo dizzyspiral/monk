@@ -605,13 +605,16 @@ class RspTarget():
         # Request the xml file contents from the gdbstub. The XML files each describe a group 
         # of registers, providing their names and sizes.
         for f in xml_files:
-            self._rsp_lock.acquire()
-            self._rsp.send(b'qXfer:features:read:%s:0,ffb' % f.encode('utf-8'))
-            response = self._rsp.recv()
-            self._rsp_lock.release()
+            file_contents = b''
+            
+            while not file_contents.endswith(b'</feature>\n') and not file_contents.endswith(b'</feature>'):
+                self._rsp_lock.acquire()
+                self._rsp.send(b'qXfer:features:read:%s:%s,ffb' % (f.encode('utf-8'), hex(len(file_contents)).encode('utf-8')))
+                response = self._rsp.recv()
+                self._rsp_lock.release()
+                file_contents += response[1:]
 
-            response = response[1:]
-            xml_contents.append(response)
+            xml_contents.append(file_contents)
 
         return xml_contents
 
