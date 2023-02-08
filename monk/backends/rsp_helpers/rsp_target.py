@@ -10,8 +10,6 @@ import logging
 from monk.backends.rsp_helpers.gdbrsp import GdbRsp
 from monk.utils.helpers import hexbyte, byte_order_int, hexaddr, hexval
 
-from monk.backends.rsp_helpers.regs.arm import reg_layout as arm_reg_layout, reg_map as arm_reg_map
-
 SMALL_DELAY = 0.0001
 
 
@@ -80,9 +78,8 @@ class RspTarget():
         self.target_is_stopped = self._is_target_stopped()
         self.cmd_stop()
         self._negotiate_features()
-        self._reg_layout, self._reg_map = self._get_reg_layout()
-        # TODO: Fix automatic register layout parsing so this isn't hard-coded
-        self._reg_layout, self._reg_map = (arm_reg_layout, arm_reg_map)
+        # reg_sizes is current unused, but might be useful for other CPUs
+        self._reg_sizes, self._reg_map = self._get_reg_layout()
 
         self._stop_events_thread.start()
 
@@ -104,37 +101,6 @@ class RspTarget():
     def _negotiate_features(self):
         self._rsp.send(b'qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;exec-events+;vContSupported+;QThreadEvents+;no-resumed+;xmlRegisters=i386')  # Pretty likely we're saying we support stuff here that we don't
         r = self._rsp.recv()  # Don't care what the stub says it supports
-
-    # TEMPORARY
-    def get_all_regs(self):
-        registers = {}
-        offset = 0
-
-        # Ask the target for the register values
-        self._rsp_lock.acquire()
-        self._rsp.send(b'g')  # Ask for all of the registers
-        data = self._rsp.recv()
-        self._rsp_lock.release()
-
-        expected_chrs = 0
-        for regname, size in self._reg_layout:
-            expected_chrs += size * 2
-        
-        consumed_chrs = 0
-
-        # Register data is returned sequentially according to the XML register layout we got earlier
-        for regname, size in self._reg_layout:
-            num_chrs = size * 2  # two hex chrs is one byte
-            consumed_chrs += num_chrs
-            
-            # If there isn't enough data to fill out the entire register map, quit early.
-            if consumed_chrs > len(data):
-                break
-
-            registers[regname] = int(data[offset : offset + num_chrs], 16)
-            offset += num_chrs
-
-        return registers
 
     def _handle_stop_packets(self):
         """
@@ -476,10 +442,11 @@ class RspTarget():
         self._rsp.send(b'vCtrlC')
 
         # TODO: Check for an error, and unset _user_stopped if it seems like the target didn't
-        # actually stop.
+        # actually stop. - How? QEMU doesn't send the OK reply that it's supposed to... do we get
+        # a stop packet...?
         self._rsp_lock.release()
         self._event_lock.release()
-
+        
     def set_sw_breakpoint(self, addr):
         self._rsp_lock.acquire()
         self._rsp.send(b'Z0,%s,4' % hexaddr(addr))
@@ -611,6 +578,8 @@ class RspTarget():
         support arbitrary machines, we'll have to RE how GDB maps the XML files to the register
         layout. For now... I've hardcoded the ARM register layout.
 
+        OKAY so I'm revisiting this - it looks like the order in which the XML files are listed in target.xml is the order in which they need to be processed. Each XML file assumes the register number picks up where the last file left off, unless otherwise specified. Each "reg" tag can specify a "regnum" which modifies the index for the register. So all we really need to do is make sure the files are processed in the right order, and check "regnum" each time we process a "reg" tag to see if we need to change the index.
+
         :rtype: tuple
         :return: (register layout, register map) or None if unable to get register layout
         """
@@ -710,9 +679,9 @@ def _get_register_info(xml_contents):
 
     :param list xml_contents: list of xml strings
     """
-    reg_layout = []
+    reg_sizes = {}
     reg_map = {}
-    i = 0
+    index = 0
 
     # Get the register names and sizes from the XML
     for content in xml_contents:
@@ -720,11 +689,18 @@ def _get_register_info(xml_contents):
 
         for child in root:
             if child.tag == 'reg':
-                reg_layout.append((child.attrib['name'], int(int(child.attrib['bitsize']) / 8)))
-                reg_map[child.attrib['name']] = i
-                i += 1
+                # Check to see if this has a regnum attribute. If it does, update the index
+                # accordingly.
+                try:
+                    index = int(child.attrib['regnum'])
+                except:
+                    pass
 
-    return reg_layout, reg_map
+                reg_sizes[child.attrib['name']] = int(int(child.attrib['bitsize']) / 8)
+                reg_map[child.attrib['name']] = index
+                index += 1
+
+    return reg_sizes, reg_map
 
 def _decode_stop_reason(signal_code):
     stop_reason = None
