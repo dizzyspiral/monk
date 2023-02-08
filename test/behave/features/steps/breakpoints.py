@@ -35,6 +35,11 @@ def set_exec_breakpoint(target, symbol):
 def step_impl(context):
     for target, callback in zip(context.targets, context.callbacks):
         target.stop()
+
+    # Wait for the target to stop. This shouldn't need to be here.
+    sleep(1)
+
+    for target, callback in zip(context.targets, context.callbacks):
         callback.uninstall()
         target.run()
 
@@ -63,7 +68,7 @@ def step_impl(context, symbol):
 def step_impl(context):
     for target, callback in zip(context.targets, context.callbacks):
         if not target.is_stopped():
-            raise AssertionError('Target did not stop')
+            raise AssertionError(f'Target did not stop, {hex(target.symbols.lookup("__switch_to"))}')
 
         pc = target.get_reg('pc')
 
