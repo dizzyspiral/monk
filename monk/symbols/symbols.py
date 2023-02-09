@@ -7,10 +7,12 @@ class Symbols():
             self._dwarf2json = Dwarf2JsonLoader(symbols_file)
             self.structs = Structs(self._dwarf2json, backend)
             self.types = self._dwarf2json.get_types()
+            self.endian = self._dwarf2json.get_endian()
         else:
             self.lookup = lambda x, y: None
             self.structs = None
             self.types = None
+            self.endian = "little"
 
     def lookup(self, symbol):
         """

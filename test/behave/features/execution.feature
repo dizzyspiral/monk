@@ -5,6 +5,7 @@ Feature: execution control
             | arm  | linux | 5.10.7  | versatilepb |
             | arm  | linux | 5.15.18 | versatilepb |
             | arm  | linux | 5.15.18 | vexpress    |
+            | ppc  | linux | 5.17.7  | e500mc      |
 #            | mips32 | linux | 5.15.18 | mips32r2-malta |
         And the target is stopped
         When the run method is invoked
@@ -16,6 +17,7 @@ Feature: execution control
             | arm  | linux | 5.10.7  | versatilepb |
             | arm  | linux | 5.15.18 | versatilepb |
             | arm  | linux | 5.15.18 | vexpress    |
+            | ppc  | linux | 5.17.7  | e500mc      |
         And the target is running
         When the run method is invoked
         Then the target should be running
@@ -26,6 +28,7 @@ Feature: execution control
             | arm  | linux | 5.10.7  | versatilepb |
             | arm  | linux | 5.15.18 | versatilepb |
             | arm  | linux | 5.15.18 | vexpress    |
+            | ppc  | linux | 5.17.7  | e500mc      |
         And the target is running
         When the stop method is invoked
         Then the target should be stopped
@@ -36,6 +39,7 @@ Feature: execution control
             | arm  | linux | 5.10.7  | versatilepb |
             | arm  | linux | 5.15.18 | versatilepb |
             | arm  | linux | 5.15.18 | vexpress    |
+            | ppc  | linux | 5.17.7  | e500mc      |
         And the target is stopped
         When the stop method is invoked
         Then the target should be stopped
@@ -46,6 +50,7 @@ Feature: execution control
             | arm  | linux | 5.10.7  | versatilepb |
             | arm  | linux | 5.15.18 | versatilepb |
             | arm  | linux | 5.15.18 | vexpress    |
+            | ppc  | linux | 5.17.7  | e500mc      |
         And the target is stopped
         When the step method is invoked
         Then execution should step by one instruction

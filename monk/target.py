@@ -19,6 +19,7 @@ class Monk():
         self.symbols = Symbols(symbols, self._backend)
         self.structs = self.symbols.structs
         self.types = self.symbols.types
+        self.endian = self.symbols.endian
 
     # == Target status ==
     def is_running(self):
@@ -42,7 +43,12 @@ class Monk():
         return self._backend.read_uint64(addr)
 
     def get_reg(self, regname):
-        return self._backend.get_reg(regname)
+        reg = self._backend.get_reg(regname)
+
+        if self.endian == 'big':
+            pass
+
+        return reg
 
     # Write
     def write_uint8(self, addr, val):

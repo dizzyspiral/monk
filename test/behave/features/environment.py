@@ -14,7 +14,7 @@ target_port_map = {
 
 port_symbols_map = {
     1111: 'ppc64-e5500-5.17.7.json',
-    1112: 'ppc-3500mc-5.17.7.json',
+    1112: 'ppc-e500mc-5.17.7.json',
     1113: 'mips64_malta-5.15.8.json',
     1114: 'mips32r2_malta-linux-5.15.18.json',
     1115: 'aarch64_virt-linux-5.15.18.json',

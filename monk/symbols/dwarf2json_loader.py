@@ -26,6 +26,12 @@ class Dwarf2JsonLoader:
 
         return j
 
+    def get_endian(self):
+        """
+        Get the endianness of memory
+        """
+        return self._json['base_types']['int']['endian']
+
     def get_types(self):
         """
         Get the names and sizes of all basic types

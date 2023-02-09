@@ -62,7 +62,7 @@ def step_impl(context, symbol):
         pc = target.get_reg('pc')
 
         if pc != target.symbols.lookup(symbol):
-            raise AssertionError(f"target stopped, but did not stop execution at {symbol}")
+            raise AssertionError(f"target stopped, but did not stop execution at {symbol} (machine PC {hex(pc)} != {hex(target.symbols.lookup(symbol))})")
 
 @then('the target should stop execution at the specified address')
 def step_impl(context):
@@ -73,4 +73,4 @@ def step_impl(context):
         pc = target.get_reg('pc')
 
         if pc != int(callback.symbol, 16):
-            raise AssertionError(f"target stopped, but did not stop execution at {hex(address)}")
+            raise AssertionError(f"target stopped, but did not stop execution at {hex(address)} (machine PC = {hex(pc)})")

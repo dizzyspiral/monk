@@ -245,7 +245,7 @@ class RspTarget():
         if _is_error_reply(response):
             raise RspTargetError("Unable to read register '{}' with index {}, received error '{}'".format(regname, regnum, response))
 
-        response = byte_order_int(response)  # TODO: Timeouts for reads
+        response = byte_order_int(response)
 
         return response
 
