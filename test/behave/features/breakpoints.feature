@@ -16,7 +16,7 @@ Feature: breakpoints
             | arm  | linux | 5.10.7  | versatilepb |
             | arm  | linux | 5.15.18 | versatilepb |
             | arm  | linux | 5.15.18 | vexpress    |
-#            | ppc  | linux | 5.17.7  | e500mc      |
+            | ppc  | linux | 5.17.7  | e500mc      |
         When an execution breakpoint is set at the specified address
             | target index  | address    |
             | 0             | 0xc00094a8 |
@@ -32,7 +32,7 @@ Feature: breakpoints
             | arm  | linux | 5.10.7  | versatilepb |
             | arm  | linux | 5.15.18 | versatilepb |
             | arm  | linux | 5.15.18 | vexpress    |
-#            | ppc  | linux | 5.17.7  | e500mc      |
+            | ppc  | linux | 5.17.7  | e500mc      |
         When an execution breakpoint is set on __switch_to
         And the breakpoint is uninstalled
         And I wait for 5 seconds

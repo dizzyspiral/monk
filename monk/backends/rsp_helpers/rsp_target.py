@@ -31,6 +31,10 @@ class RspTarget():
         # THE ORDER IN WHICH THINGS ARE INITIALIZED IN THIS CONSTRUCTOR MATTERS.
         # Modify it at your own peril.
 
+        # Assume big endian - this will get updated later if necessary when the symbols for the
+        # target are loaded.
+        self.endian = 'big'
+
         # Signals notification
         #
         # This is the interface exposed to code that handles user-defined hooks. These functions
@@ -245,7 +249,7 @@ class RspTarget():
         if _is_error_reply(response):
             raise RspTargetError("Unable to read register '{}' with index {}, received error '{}'".format(regname, regnum, response))
 
-        response = byte_order_int(response)
+        response = byte_order_int(response, self.endian)
 
         return response
 
@@ -292,7 +296,7 @@ class RspTarget():
         reply = self._rsp.recv()
         self._rsp_lock.release()
 
-        reply = byte_order_int(reply)
+        reply = byte_order_int(reply, self.endian)
 
         return reply
 

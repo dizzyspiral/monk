@@ -7,6 +7,21 @@ class Rsp():
         self.connected = False
         self.connect(host, port)
 
+    # Expose the underlying target's endianness. RspTarget has to do the endian translation,
+    # because otherwise we're doing extra work (basically doing the conversion twice), and 
+    # we'd have to figure out the byte-wise length of an int after the fact, which is difficult
+    # for things like registers which can sometimes be 32-bit and sometimes 64-bit. The size of 
+    # registers isn't defined by the symbols file, but rather by the XML that the RspTarget 
+    # receives from the remote target.
+    @property
+    def endian(self):
+        return self._rsp_target.endian
+
+    @endian.setter
+    def endian(self, val):
+        if self._rsp_target:
+            self._rsp_target.endian = val
+
     def connect(self, host, port):
         self._rsp_target = RspTarget(host, port)
         self.connected = True
