@@ -59,7 +59,6 @@ def get_pid(target, task=None):
 
     return target.structs.TaskStruct(task).pid
 
-_task_cache = {}  # XXX: This needs to go away now that it could be called across multiple targets
 def find_task(target, name):
     """
     Find the base address of the named task.
@@ -68,24 +67,31 @@ def find_task(target, name):
     :return: Tasks's base address
     :rtype: int
     """
-    global _task_cache
     TaskStruct = target.structs.TaskStruct
-
-    if name in _task_cache.keys():
-        if as_string(TaskStruct(_task_cache[name]).comm) == name:
-            return _task_cache[name]
 
     t = get_task(target)
     t = TaskStruct(t)
+
+    # Check if the first task is the one we want. If this weren't python, we'd do
+    # a do-while loop...
+    if as_string(t.comm) == name:
+        return t
+
+    # Prime the loop by getting the next task, and save the first task's PID so we
+    # know if we've walked the whole list
     first_pid = t.pid
     t = TaskStruct(t.tasks.next - t.tasks_offset)
 
+    # Walk the task list looking for the task with the specified name
     while as_string(t.comm) != name and t.pid != first_pid:
+        # tasks.next points to the next task's task member, so we need to adjust it by
+        # the offset of the tasks member to get a pointer to the base of the next task
         t = TaskStruct(t.tasks.next - t.tasks_offset)
 
+    # Check to see if we actually found the task in question. We could have walked
+    # the whole list and not found it.
     if as_string(t.comm) == name:
-        _task_cache[name] = t.base
-        return t.base
+        return t
     else:
         return None
 

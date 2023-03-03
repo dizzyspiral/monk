@@ -53,6 +53,7 @@ def before_scenario(context, scenario):
     context.targets = []  # Holds target connections (Monk objects) for each supported target
     context.callbacks = []  # Holds any callbacks created for all targets
     context.prev_pc = {}  # Holds the value of PC before doing some operation for each target
+    context.result = {}
 
 def after_scenario(context, scenario):
     # Clean up context.targets
