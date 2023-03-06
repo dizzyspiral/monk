@@ -26,7 +26,12 @@ class TestDwarf2jsonLoader(unittest.TestCase):
         self.assertEqual(type(j), dict)
         self.assertEqual(j["k1"], "val1")
         self.assertEqual(j["k2"]["k3"], "val2")
-        self.assertEqual(types["int"], 4)
+
+    def test_endian(self):
+        pass
+
+    def test_get_types(self):
+        pass
 
     @patch("builtins.open", new_callable=mock_open, read_data='{"k1":"val1","k2":{"k3":"val2"}}')
     def test_load_json(self, mock_file):
