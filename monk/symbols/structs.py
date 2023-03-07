@@ -270,14 +270,6 @@ def _gen_attributes(cls, backend, d2json, class_type_map):
     has a getter and setter that reads/writes memory of the target.
     """
     attribute_generator = AttributeGenerator(backend)
-    # Logically speaking, the attributes for a struct's class could/should be created
-    # prior to invoking its constructor. But, doing it here lets us defer creation of
-    # them until instantiation, which is useful because attributes which are
-    # themselves other structs need to have those other structs defined before the
-    # attribute can be created. This isn't the best way to solve that problem - we
-    # should just do a define pass on the structs, and then an attribute assignment
-    # pass, but whatever, this is how it turned out for now.
-
     attr_list = []
 
     # For every field defined for this struct
