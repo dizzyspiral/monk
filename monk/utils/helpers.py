@@ -19,11 +19,8 @@ def as_int_list(s):
 
     return l
 
-def byte_order_int(val):
+def byte_order_int(val, order):
     """ Transforms val to the correct byte ordering """
-    # The current test machine is LE, so we just assume LE for now. You can suss out 
-    # the byte ordering of the machine from the JSON file by looking at the endianess
-    # of the basic types.
     logging.getLogger(__name__).debug("byte_order_int(%s)" % val)
 
     try:
@@ -32,7 +29,8 @@ def byte_order_int(val):
         print("Unable to decode '{}'".format(val))
         raise e
 
-    i = int.from_bytes(b, "little")
+    i = int.from_bytes(b, order)
+
     return i
 
 def hexbyte(val):
