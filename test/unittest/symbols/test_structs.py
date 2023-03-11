@@ -2,7 +2,8 @@ import unittest
 from unittest.mock import MagicMock, patch, call, mock_open
 import sys
 
-from monk.symbols.structs import AttributeGenerator, _name_to_camel, _gen_struct_constructor, _gen_attributes
+from monk.symbols.structs import AttributeGenerator, _name_to_camel, _gen_struct_constructor, _gen_attributes, Structs
+from monk.symbols.dwarf2json_loader import Dwarf2JsonLoader
 
 
 backend_mock = MagicMock()
@@ -167,8 +168,6 @@ class TestStructs(unittest.TestCase):
 
     @patch('monk.symbols.dwarf2json_loader.Dwarf2JsonLoader')
     def test_gen_struct_constructor_union(self, mock_d2json):
-        self.skipTest("Come back to this")
-
         mock_d2json.get_struct_fields.return_value = {"f5" : {}}
         mock_d2json.get_field_type.return_value = "struct"
         mock_d2json.get_field_offset.return_value = 4
@@ -178,11 +177,13 @@ class TestStructs(unittest.TestCase):
         # struct/union attributes have a class to return
         teststruct_mock = MagicMock()
         teststruct_mock.return_value = "teststr"  # Normally would return class instance
-        _class_type_map["teststruct"] = teststruct_mock
 
         # Create a test class using _gen_struct_constructor
-        TestClass = type("TestClass", (object,), {})
-        TestClass.__init__ = _gen_struct_constructor(TestClass, "test_class", mock_d2json)
+        struct_name = "test_class"
+        TestClass = type(struct_name, (object,), {})
+        TestClass.__init__ = _gen_struct_constructor()
+        TestClass.name = struct_name
+        _gen_attributes(TestClass, backend_mock, mock_d2json, {struct_name: TestClass, "teststruct": teststruct_mock})
 
         # Create an instance of the class and check that the attributes read from memory
         # as expected, i.e. correct sizes, offsets, etc.
@@ -195,13 +196,8 @@ class TestStructs(unittest.TestCase):
         teststruct_mock.assert_called_with(4)
         self.assertEqual(t.f5_offset, 4)
 
-        # cleanup
-        _class_type_map.pop("teststruct")
-
     @patch('monk.symbols.dwarf2json_loader.Dwarf2JsonLoader')
     def test_gen_struct_constructor_array(self, mock_d2json):
-        self.skipTest("Come back to this")
-
         mock_d2json.get_struct_fields.return_value = {"f6" : {}}
         mock_d2json.get_field_offset.return_value = 5
         mock_d2json.get_base_type_size.return_value = 1
@@ -210,8 +206,11 @@ class TestStructs(unittest.TestCase):
         mock_d2json.get_field_type.return_value = "array"
 
         # Create a test class using _gen_struct_constructor
-        TestClass = type("TestClass", (object,), {})
-        TestClass.__init__ = _gen_struct_constructor(TestClass, "test_class", mock_d2json)
+        struct_name = "test_class"
+        TestClass = type(struct_name, (object,), {})
+        TestClass.__init__ = _gen_struct_constructor()
+        TestClass.name = struct_name
+        _gen_attributes(TestClass, backend_mock, mock_d2json, {struct_name: TestClass})
 
         # Create an instance of the class and check that the attributes read from memory
         # as expected, i.e. correct sizes, offsets, etc.
@@ -259,15 +258,11 @@ class TestStructs(unittest.TestCase):
     """
     )
     def test_init_kernel_classes(self, mock_d2json):
-        self.skipTest("Come back to this")
+        d2json = Dwarf2JsonLoader('somefile')
+        structs = Structs(d2json, backend_mock)
 
-        init("filename")
-
-        self.assertEqual(len(_class_type_map), 1)
-        self.assertTrue('test_struct' in _class_type_map)
-
-        from monk.symbols.structs import TestStruct
-        t = TestStruct(0)
+        t = structs.TestStruct(0)
+        self.assertEqual(t.name, 'test_struct')
         self.assertEqual(t.f1, 32)
         backend_mock.read_uint32.assert_called_with(0)
 
