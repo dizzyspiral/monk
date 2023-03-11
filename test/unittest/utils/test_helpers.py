@@ -18,7 +18,8 @@ class TestHelpers(unittest.TestCase):
         self.assertEqual(helpers.hexbyte(0xaaa), b'aaa')
 
     def test_byte_order_int(self):
-        self.assertEqual(helpers.byte_order_int(b'12345678'), 0x78563412)
+        self.assertEqual(helpers.byte_order_int(b'12345678', 'little'), 0x78563412)
+        self.assertEqual(helpers.byte_order_int(b'12345678', 'big'), 0x12345678)
 
     def test_as_string(self):
         l = [ord('h'), ord('e'), ord('l'), ord('l'), ord('o'), 0]
