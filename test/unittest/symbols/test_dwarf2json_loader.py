@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch, mock_open, MagicMock
 
 from monk.symbols.dwarf2json_loader import Dwarf2JsonLoader
-from monk.symbols.types import types
+
 
 class TestDwarf2jsonLoader(unittest.TestCase):
 

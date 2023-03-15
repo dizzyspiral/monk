@@ -1,18 +1,32 @@
-from monk.callback_manager import MonkControlError
+"""Callback class and associated exceptions
 
+Exposes a callback class to either use directly, or subclass for custom callbacks.
+"""
 import logging
 import threading
 
-
-class MonkHookError(Exception):
-    pass
+from monk.callback_manager import MonkControlError
 
 
 class MonkCallbackError(Exception):
-    pass
+    """Exception for errors raised by Callback"""
+    #pass
 
 
 class Callback:
+    """Register a callback hook with the target
+
+    Class for registering an execution callback with the target. It's designed to be
+    subclassed to create more complex hooks. E.g. the OnExecute callback defined in
+    monk_plugins is a more user-friendly way of creating an execution callback. This
+    Callback class manages the lifecycle of the callback and provides safe methods for 
+    adding and removing hooks, so that logic does not have to be duplicated throughout
+    every subclassed callback.
+
+    This class can also be used to simply register a breakpoint, with no associated
+    callback function. If no callback is supplied, this class will stop the target's
+    execution when the callback condition is met.
+    """
     def __init__(self, target, callback=None):
         """
         Create a new callback.
@@ -34,28 +48,42 @@ class Callback:
             self.run = callback
 
     def add_hook(self, symbol, cb):
-        self._hook_lock.acquire()
-        h = self._on_execute(symbol, cb)
-        self._hooks.append(h)
-        self._hook_lock.release()
+        """
+        Add a hook to the target
+
+        :param string|int symbol: the symbol for which to register the hook. Can be a function
+        name or address.
+        :param function cb: the callback function to execute when the hook is triggered
+        :rtype: tuple
+        :returns: the hook
+        """
+        with self._hook_lock:
+            h = self._on_execute(symbol, cb)
+            self._hooks.append(h)
 
         return h  # So that hooks can be tracked and later removed individually
 
     def remove_hook(self, hook):
-        self._hook_lock.acquire()
-        
-        try:
-            self.target.remove_hook(hook)
-        except MonkControlError as e:
-            raise MonkCallbackError("Unable to remove hook, hook did not exist") from e
+        """
+        Remove a hook from the target
 
-        try:
-            self._hooks.remove(hook)
-        except ValueError:
-            pass  # hook wasn't in list, probably not a big deal if removing it from the system succeeded
+        :param tuple hook: the hook to remove
+        :raises MonkControlError: if the hook did not exist in the target
+        """
+        with self._hook_lock:
+            try:
+                self.target.remove_hook(hook)
+            except MonkControlError as e:
+                raise MonkCallbackError("Unable to remove hook, hook did not exist") from e
 
-        self._hook_lock.release()
+            try:
+                self._hooks.remove(hook)
+            except ValueError:
+                # hook wasn't in list, probably not a big deal if removing it from the system
+                # succeeded
+                pass
 
+    # pylint:disable=method-hidden
     def run(self):
         """
         Run the callback. This function is overriden in the constructor by the
@@ -77,12 +105,16 @@ class Callback:
         raise MonkCallbackError("Callback install() not initialized")
 
     def uninstall(self):
+        """
+        Uninstall the callback.
+
+        This removes all of the hooks added by add_hook.
+        """
         for hook in self._hooks:
             self.remove_hook(hook)
 
-        self._hook_lock.acquire()
-        self._hooks = []
-        self._hook_lock.release()
+        with self._hook_lock:
+            self._hooks = []
 
     def _symbol_to_address(self, symbol):
         # If string, try looking up symbol (e.g. function name)
@@ -93,13 +125,13 @@ class Callback:
             if not addr:
                 try:
                     addr = int(symbol, 16)
-                except:
+                except ValueError:
                     addr = None
         else:
             # If not string, try casting to int directly
             try:
                 addr = int(symbol)
-            except:
+            except ValueError:
                 addr = None
 
         return addr
@@ -109,7 +141,8 @@ class Callback:
         addr = self._symbol_to_address(symbol)
 
         if not symbol:
-            raise MonkHookError("Unable to set hook for symbol '%s', cannot resolve address" % symbol)
+            raise MonkCallbackError(f"Unable to set hook for symbol '{symbol}',"
+                                    "cannot resolve address")
 
         logging.getLogger(__name__).debug("Adding callback")
         bp = self.target.on_execute(addr, callback)

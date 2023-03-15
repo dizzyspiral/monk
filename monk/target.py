@@ -1,8 +1,14 @@
-import monk.backends as backends
+"""Core introspection framework
+"""
+from monk import backends
 from monk.callback_manager import CallbackManager
 from monk.symbols import Symbols
 
 class Monk():
+    """An introspection target
+
+    Exposes all of the core target control, memory access, and breakpoint functionality.
+    """
     def __init__(self, host='localhost', port=1234, symbols=None, backend='rsp'):
         """
         Creates a new Monk instance connected to the target specified by host and port.
@@ -23,56 +29,129 @@ class Monk():
 
     # == Target status ==
     def is_running(self):
+        """Get the running state of the target
+
+        :rtype: bool
+        :returns: True if the target is running, False otherwise
+        """
         return self._backend.target_is_running()
 
     def is_stopped(self):
+        """Get the running state of the target
+
+        :rtype: bool
+        :returns: True if the target is stopped, False otherwise
+        """
         return not self._backend.target_is_running()
 
     # === Memory ===
     # Read
     def read_uint8(self, addr):
+        """Read one byte from memory
+
+        :param int addr: the address to read from
+        :rtype: int
+        :returns: the byte read
+        """
         return self._backend.read_uint8(addr)
 
     def read_uint16(self, addr):
+        """Read two bytes from memory
+
+        :param int addr: the address to read from
+        :rtype: int
+        :returns: the bytes read
+        """
         return self._backend.read_uint16(addr)
 
     def read_uint32(self, addr):
+        """Read four bytes from memory
+
+        :param int addr: the address to read from
+        :rtype: int
+        :returns: the bytes read
+        """
         return self._backend.read_uint32(addr)
 
     def read_uint64(self, addr):
+        """Read eight bytes from memory
+
+        :param int addr: the address to read from
+        :rtype: int
+        :returns: the bytes read
+        """
         return self._backend.read_uint64(addr)
 
     def get_reg(self, regname):
+        """Read a register
+
+        :param str regname: the name of the register to read
+        :rtype: int
+        :returns: the register value
+        """
         return self._backend.get_reg(regname)
 
     # Write
     def write_uint8(self, addr, val):
+        """Write a byte to memory
+        
+        :param int addr: the address to write to
+        :param int val: the byte to write
+        """
         self._backend.write_uint8(addr, val)
 
     def write_uint16(self, addr, val):
+        """Write two bytes to memory
+        
+        :param int addr: the address to write to
+        :param int val: the bytes to write
+        """
         self._backend.write_uint16(addr, val)
 
     def write_uint32(self, addr, val):
+        """Write four bytes to memory
+        
+        :param int addr: the address to write to
+        :param int val: the bytes to write
+        """
         self._backend.write_uint32(addr, val)
 
     def write_uint64(self, addr, val):
+        """Write eight bytes to memory
+        
+        :param int addr: the address to write to
+        :param int val: the bytes to write
+        """
         self._backend.write_uint64(addr, val)
 
     def write_reg(self, regname, val):
+        """Write to a register
+        
+        :param str regname: the name of the register to write to
+        :param int val: the value to write
+        """
         self._backend.write_reg(regname, val)
 
     # === Execution ===
     # Control
     def run(self):
+        """Run the target
+        """
         self._backend.run()
 
     def stop(self):
+        """Stop the target
+        """
         self._backend.stop()
 
     def step(self):
+        """Step the target
+        """
         self._backend.step()
 
     def shutdown(self):
+        """Shutdown the connection to the target
+        """
         self._backend.shutdown()
 
     # Hooks
@@ -80,21 +159,51 @@ class Monk():
     # want to. callbacks.py defines the various callback classes, which have a nicer
     # user interface and can be subclassed to do complex tasks more cleanly.
     def on_execute(self, addr, callback):
+        """Add a callback that runs on execution of an address
+
+        :param int addr: the address that, when executed, will cause the callback to run
+        :param function callback: the function to run when the address is executed
+        """
         return self._callback_manager.on_execute(addr, callback)
 
     def on_read(self, addr, callback):
+        """Add a callback that runs on read of an address
+
+        :param int addr: the address that, when read, will cause the callback to run
+        :param function callback: the function to run when the address is read
+        """
         return self._callback_manager.on_read(addr, callback)
 
     def on_write(self, addr, callback):
+        """Add a callback that runs on write of an address
+
+        :param int addr: the address that, when written, will cause the callback to run
+        :param function callback: the function to run when the address is written
+        """
         return self._callback_manager.on_write(addr, callback)
 
     def on_access(self, addr, callback):
+        """Add a callback that runs on access of an address
+
+        :param int addr: the address that, when accessed, will cause the callback to run
+        :param function callback: the function to run when the address is accessed
+        """
         return self._callback_manager.on_access(addr, callback)
 
     def remove_hook(self, callback):
+        """Remove a callback
+
+        :param tuple callback: the callback to remove
+        """
         self._callback_manager.remove_callback(callback)
 
     # === Symbols ===
     # Convenience functions to access the symbols object attributes more directly
     def lookup(self, symbol):
-        return self.symbols.lookup(symbol)
+        """Translate a symbol to its address
+
+        :param str symbol: the symbol to translate
+        :rtype: int or None
+        :returns: the address of the symbol, or None if it could not be translated
+        """
+        return self.symbols.lookup(symbol)  # pylint:disable=no-value-for-parameter

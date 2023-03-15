@@ -1,7 +1,8 @@
 import gdb
 import re
 
-from monk.symbols.types import types
+# TODO: Needs to be refactored into a class
+
 
 def initialize():
     pass
