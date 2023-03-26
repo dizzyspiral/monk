@@ -47,6 +47,11 @@ class Dwarf2JsonLoader:
         """
         return self._json['base_types']['int']['endian']
 
+    def get_addr_size(self):
+        """Get the number of bytes in an address
+        """
+        return self._json['base_types']['pointer']['size']
+
     def get_types(self):
         """
         Get the names and sizes of all basic types
