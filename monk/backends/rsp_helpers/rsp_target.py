@@ -34,6 +34,9 @@ class RspTarget():
         # Assume big endian - this will get updated later if necessary when the symbols for the
         # target are loaded.
         self.endian = 'big'
+        # Assume 32 bit addressing - this will get updated later if necessary when the symbols
+        # for the target are loaded.
+        self.addr_size = 4
 
         # Signals notification
         #
@@ -92,6 +95,9 @@ class RspTarget():
         Clears the receive queue and stop queue of the RSP connection. Only intended to be 
         called during initialization of RspTarget, since it has a guaranteed 1 second delay
         """
+        # TODO: Figure out if this function even does anything. Presumably the RSP connection
+        # is reset when you disconnect... I don't think a new session would inherit the old
+        # state.
         while self._rsp.recv(timeout=1):
             pass
 
@@ -292,7 +298,7 @@ class RspTarget():
         # Make the bold assumption that this is never going to be called for anything
         # bigger than an int, so we can return an int.
         self._rsp_lock.acquire()
-        self._rsp.send(b'm%s,%d' % (hexaddr(addr), size))
+        self._rsp.send(b'm%s,%d' % (hexaddr(addr, self.addr_size), size))
         reply = self._rsp.recv()
         self._rsp_lock.release()
 
@@ -302,7 +308,7 @@ class RspTarget():
 
     def write_memory(self, addr, val, size):
         self._rsp_lock.acquire()
-        self._rsp.send(b'M%s,%d,%s' %(hexaddr(addr), size, hexval(val, size * 2)))
+        self._rsp.send(b'M%s,%d,%s' %(hexaddr(addr, self.addr_size), size, hexval(val, size * 2)))
         reply = self._rsp.recv()
         self._rsp_lock.release()
 
@@ -453,7 +459,7 @@ class RspTarget():
         
     def set_sw_breakpoint(self, addr):
         self._rsp_lock.acquire()
-        self._rsp.send(b'Z0,%s,4' % hexaddr(addr))
+        self._rsp.send(b'Z0,%s,4' % hexaddr(addr, self.addr_size))
         status = self._rsp.recv()
 
         logging.getLogger(__name__).debug("set_sw_breakpoint: status = %s" % status)
@@ -465,7 +471,7 @@ class RspTarget():
 
     def set_hw_breakpoint(self, addr):
         self._rsp_lock.acquire()
-        self._rsp.send(b'Z1,%s,0' % hexaddr(addr))
+        self._rsp.send(b'Z1,%s,0' % hexaddr(addr, self.addr_size))
         status = self._rsp.recv()
 
         logging.getLogger(__name__).debug("set_hw_breakpoint: status = %s" % status)
@@ -477,17 +483,17 @@ class RspTarget():
 
     def set_write_watchpoint(self, addr, sz):
         self._rsp_lock.acquire()
-        self._rsp.send(b'Z2,%s,%s' % (hexaddr(addr), str(sz).encode('utf-8')))
+        self._rsp.send(b'Z2,%s,%s' % (hexaddr(addr, self.addr_size), str(sz).encode('utf-8')))
         self._rsp_lock.release()
 
     def set_read_watchpoint(self, addr, sz):
         self._rsp_lock.acquire()
-        self._rsp.send(b'Z3,%s,%s' % (hexaddr(addr), str(sz).encode('utf-8')))
+        self._rsp.send(b'Z3,%s,%s' % (hexaddr(addr, self.addr_size), str(sz).encode('utf-8')))
         self._rsp_lock.release()
 
     def set_access_watchpoint(self, addr, sz):
         self._rsp_lock.acquire()
-        self._rsp.send(b'Z4,%s,%s' % (hexaddr(addr), str(sz).encode('utf-8')))
+        self._rsp.send(b'Z4,%s,%s' % (hexaddr(addr, self.addr_size), str(sz).encode('utf-8')))
         self._rsp_lock.release()
 
     def remove_sw_breakpoint(self, addr):
@@ -499,7 +505,7 @@ class RspTarget():
         """
         logging.getLogger(__name__).debug("rsp_target.remove_sw_breakpoint: {}".format(hex(addr)))
         self._rsp_lock.acquire()
-        self._rsp.send(b'z0,%s,4' % hexaddr(addr))
+        self._rsp.send(b'z0,%s,4' % hexaddr(addr, self.addr_size))
         status = self._rsp.recv()
         self._rsp_lock.release()
 
@@ -528,22 +534,22 @@ class RspTarget():
 
     def remove_hw_breakpoint(self, addr):
         self._rsp_lock.acquire()
-        self._rsp.send(b'z1,%s,0' % hexaddr(addr))
+        self._rsp.send(b'z1,%s,0' % hexaddr(addr, self.addr_size))
         self._rsp_lock.release()
 
     def remove_write_watchpoint(self, addr, sz):
         self._rsp_lock.acquire()
-        self._rsp.send(b'z2,%s,%s' % (hexaddr(addr), str(sz).encode('utf-8')))
+        self._rsp.send(b'z2,%s,%s' % (hexaddr(addr, self.addr_size), str(sz).encode('utf-8')))
         self._rsp_lock.release()
 
     def remove_read_watchpoint(self, addr, sz):
         self._rsp_lock.acquire()
-        self._rsp.send(b'z3,%s,%s' % (hexaddr(addr), str(sz).encode('utf-8')))
+        self._rsp.send(b'z3,%s,%s' % (hexaddr(addr, self.addr_size), str(sz).encode('utf-8')))
         self._rsp_lock.release()
 
     def remove_access_watchpoint(self, addr, sz):
         self._rsp_lock.acquire()
-        self._rsp.send(b'z4,%s,%s' % (hexaddr(addr), str(sz).encode('utf-8')))
+        self._rsp.send(b'z4,%s,%s' % (hexaddr(addr, self.addr_size), str(sz).encode('utf-8')))
         self._rsp_lock.release()
 
     def close(self):

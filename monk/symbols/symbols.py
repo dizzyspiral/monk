@@ -13,11 +13,13 @@ class Symbols():
             self.structs = Structs(self._dwarf2json, backend)
             self.types = self._dwarf2json.get_types()
             self.endian = self._dwarf2json.get_endian()
+            self.addr_size = self._dwarf2json.get_addr_size()
         else:
             self.lookup = lambda x, y: None
             self.structs = None
             self.types = None
             self.endian = "little"
+            self.addr_size = 4
 
     # pylint:disable=method-hidden
     def lookup(self, symbol):

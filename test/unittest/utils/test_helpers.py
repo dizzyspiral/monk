@@ -11,7 +11,8 @@ class TestHelpers(unittest.TestCase):
         self.assertEqual(helpers.hexval(0xaa, 8), b'000000aa')
 
     def test_hexaddr(self):
-        self.assertEqual(helpers.hexaddr(0xa), b'0000000a')
+        self.assertEqual(helpers.hexaddr(0xa, 4), b'0000000a')
+        self.assertEqual(helpers.hexaddr(0xa, 8), b'000000000000000a')
 
     def test_hexbyte(self):
         self.assertEqual(helpers.hexbyte(0xa), b'0a')
