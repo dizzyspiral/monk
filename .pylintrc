@@ -4,4 +4,5 @@ disable=
     logging-fstring-interpolation,
     consider-using-dict-items,
     too-many-public-methods,
+    too-few-public-methods,
     fixme

@@ -1,6 +1,5 @@
 """Loader for dwarf2json
 """
-import os
 import json
 
 basic_types = ['pointer', 'base']
@@ -11,6 +10,11 @@ other_types = ['enum']  # This list is't used so far
 # Some types have built-in assumptions about what they map to for a base type in the C standard.
 # They're mapped here.
 equivalent_types = {'enum': 'int'}
+
+
+class Dwarf2JsonError(Exception):
+    """Error raised by Dwarf2JsonLoader for JSON element access errors
+    """
 
 # XXX The design of this module is fucked.
 
@@ -91,8 +95,8 @@ class Dwarf2JsonLoader:
         """
         try:
             off = self._json['user_types'][struct]['fields'][elem]['offset']
-        except KeyError:
-            print(f"failed to get offset for {struct}.{elem}" % (struct, elem))
+        except (KeyError, TypeError):
+            print(f"failed to get offset for {struct}.{elem}")
             off = None
 
         return off
@@ -119,9 +123,9 @@ class Dwarf2JsonLoader:
         except KeyError:
             # XXX We can probably make a reasonable guess that it's an int... but maybe
             # the caller should handle that.
-            exp_str = "Unable to get size for base type '{}'".format(base_type)
+            exp_str = f"Unable to get size for base type '{base_type}'"
 
-        raise Exception(exp_str)
+        raise Dwarf2JsonError(exp_str)
 
     def get_field_offset(self, field_attributes):
         """Get the offset attribute from the field attributes
@@ -161,7 +165,7 @@ class Dwarf2JsonLoader:
 
         try:
             t = field_attributes['type']['subtype']['name']
-        except:
+        except KeyError:
             # If the array is an array of pointers to structs, then there are two subtypes, and the
             # first nested subtype doesn't have a name. It does however have a kind, and that kind
             # is (hopefully, probably, maybe?) pointer.
@@ -215,11 +219,11 @@ class Dwarf2JsonLoader:
         """
         t = self.get_field_type(field_attributes)
 
-        if t == 'pointer':
-            return t
-        elif t == 'base':
-            t = field_attributes['type']['name']
-            return t
+        if t not in ['pointer', 'base']:
+            raise Dwarf2JsonError(f"Tried to get type name for kind '{t}', which is not"
+                                 " 'pointer' or 'base'")           
 
-        raise Exception("Tried to get type name for kind '%s', which is not"
-                        " 'pointer' or 'base'" % t)
+        if t == 'base':
+            t = field_attributes['type']['name']
+
+        return t

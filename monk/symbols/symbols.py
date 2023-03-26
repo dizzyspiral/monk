@@ -1,7 +1,12 @@
+"""Expose user-facing symbols API
+"""
+
 from monk.symbols.dwarf2json_loader import Dwarf2JsonLoader
 from monk.symbols.structs import Structs
 
 class Symbols():
+    """Wrapper class for bringing together all of the user-facing symbols info
+    """
     def __init__(self, symbols_file, backend):
         if symbols_file:
             self._dwarf2json = Dwarf2JsonLoader(symbols_file)
@@ -14,6 +19,7 @@ class Symbols():
             self.types = None
             self.endian = "little"
 
+    # pylint:disable=method-hidden
     def lookup(self, symbol):
         """
         Looks up symbol and returns its address, or None if an address isn't found
@@ -21,7 +27,6 @@ class Symbols():
         :param str symbol: the symbol to resolve
         :rtype: int or None
         """
-
         addr = self._dwarf2json.find_symbol_address(symbol)
 
         return addr
