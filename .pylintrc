@@ -1,0 +1,10 @@
+[MESSAGES CONTROL]
+disable=
+    invalid-name,
+    logging-fstring-interpolation,
+    logging-format-interpolation,
+    consider-using-dict-items,
+    too-many-public-methods,
+    too-few-public-methods,
+    fixme,
+    too-many-instance-attributes

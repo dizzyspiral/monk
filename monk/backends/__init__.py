@@ -1,5 +1,8 @@
-import monk.backends.rsp as rsp
-# need to address this later, can't import gdb backend because it depends on GDBPython, 
+""" Backends available to monk to connect to the target
+"""
+
+from monk.backends import rsp
+# need to address this later, can't import gdb backend because it depends on GDBPython,
 # which only exists in a running GDB session context.
 #import monk.backends.gdb as gdb
 

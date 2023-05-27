@@ -1,3 +1,8 @@
+"""
+Basic asynchronous GDB RSP client. Sends packets with correct checksums, receives
+packets and strips checksums.
+"""
+
 import socket
 import re
 from queue import Queue, Empty
@@ -9,7 +14,7 @@ from ...utils.helpers import hexbyte
 
 
 class GdbRspError(Exception):
-    pass
+    """ Error raised by GdbRsp """
 
 
 class GdbRsp():
@@ -36,10 +41,10 @@ class GdbRsp():
             self._sock.connect((host, port))
         except ConnectionRefusedError:
             self._sock.close()
-            err_msg = ("Unable to connect to gdbstub at %s" % ":".join([host, str(port)]))
+            err_msg = f"Unable to connect to gdbstub at {':'.join([host, str(port)])}"
 
         if err_msg:
-            raise(GdbRspError(err_msg))
+            raise GdbRspError(err_msg)
 
         # Set up async selectors
         self._read_selector = selectors.DefaultSelector()
@@ -54,7 +59,11 @@ class GdbRsp():
         self._write_thread.start()
 
     def send(self, data):
-        logging.getLogger(__name__).debug("send() %s" % data)
+        """ Send a packet to the remote target
+
+        :param bytes data: the packet to send
+        """
+        logging.getLogger(__name__).debug(f"send() {data}")
 
         try:
             packet = _make_packet(data)
@@ -78,22 +87,26 @@ class GdbRsp():
             except Empty:
                 continue
 
-            logging.getLogger(__name__).debug("_do_send() %s" % packet)
+            logging.getLogger(__name__).debug(f"_do_send() {packet}")
             self._write_selector.select()
             logging.getLogger(__name__).debug("_do_send() write selector acquired")
-            self._sock_lock.acquire()
-            logging.getLogger(__name__).debug("_do_send() write socket lock acquired")
 
-            try:
-                self._sock.send(packet)
-            except BrokenPipeError:
-                # If the other end of the socket connection has closed, it's time to shutdown.
-                self._shutdown_flag = True
+            with self._sock_lock:
+                logging.getLogger(__name__).debug("_do_send() write socket lock acquired")
 
-            logging.getLogger(__name__).debug("_do_send() packet sent")
-            self._sock_lock.release()
+                try:
+                    self._sock.send(packet)
+                except BrokenPipeError:
+                    # If the other end of the socket connection has closed, it's time to shutdown.
+                    self._shutdown_flag = True
+
+                logging.getLogger(__name__).debug("_do_send() packet sent")
 
     def recv(self, timeout=None):
+        """ Get a packet from the target
+
+        :param float timeout: amount of time to wait for the incoming packet
+        """
         packet = None
 
         try:
@@ -120,8 +133,8 @@ class GdbRsp():
 
             if not events:
                 continue
-                
-            self._sock_lock.acquire()
+
+            self._sock_lock.acquire()  # pylint:disable=consider-using-with
 
             # Read until we've read a checksum
             while not re.search(self._checksum_pattern, recv_buf):
@@ -168,7 +181,7 @@ class GdbRsp():
                 # Send an ack. Directly append to send queue, because ack doesn't need checksum
                 self._send_queue.put(b'+')
 
-            logging.getLogger(__name__).debug("received packet {}".format(packet))
+            logging.getLogger(__name__).debug(f"received packet {packet}")
 
             if _is_stop_packet(packet):
                 self.stop_queue.put(packet)
@@ -186,7 +199,7 @@ class GdbRsp():
         except OSError:
             # This can happen if the remote connection has closed - ignore
             pass
-            
+
         self._sock.close()
         self._read_selector.close()
         self._write_selector.close()

@@ -1,11 +1,17 @@
-import sys
-
-from .dwarf2json_loader import basic_types, class_types, array_types
+"""Expose kernel structs as memory-reading objects
+"""
 from monk.utils.helpers import as_string  # for struct __str__ method
+from .dwarf2json_loader import basic_types, class_types, array_types
 
 
 def generate_structs(backend, d2json):
-    """ Initialize the kernel classes. Load them from JSON, return a list of them."""
+    """Initialize the kernel classes. Load them from JSON, return a list of them.
+
+    :param object backend: the backend interface to the target
+    :param Dwarf2JsonLoader d2json: the dwarf2json loader for the JSON
+    :rtype: list
+    :returns: 
+    """
     class_type_map = {}  # Bind this to all classes once every class struct has been created
     structs = []  # List of all class structs
 
@@ -21,13 +27,22 @@ def generate_structs(backend, d2json):
         structs.append((obj_name, c))
 
     # 3. Add attributes to the classes
-    for name, struct in structs:
+    for _, struct in structs:
         _gen_attributes(struct, backend, d2json, class_type_map)
 
     return structs
 
 
 class AttributeGenerator():
+    """Generates unique getters and setters for kernel struct classes
+
+    This class is used to populate kernel struct objects with getters and setters for their
+    attributes that use the backend's read/write functions to access memory, thereby reading
+    the target's memory on access of the attribute, or writing it on assignment.
+
+    Each of the gen_* functions in this class generates a unique getter or setter, so that
+    no two kernel classes will share the same function.
+    """
     def __init__(self, backend):
         self.backend = backend
 
@@ -41,12 +56,12 @@ class AttributeGenerator():
         """
         if size == 1:
             return self.backend.read_uint8
-        elif size == 2:
+        if size == 2:
             return self.backend.read_uint16
-        elif size == 8:
+        if size == 8:
             return self.backend.read_uint64
-        else:
-            return self.backend.read_uint32
+
+        return self.backend.read_uint32
 
     def gen_uint_prop(self, offset, size):
         """
@@ -75,7 +90,9 @@ class AttributeGenerator():
         :rtype: function
         """
         read_fn = self._get_read_fn(elem_size)
-        return lambda x: [read_fn(a) for a in range(x.base + offset, x.base + offset + (num_elems * elem_size), elem_size)]
+        return lambda x: [read_fn(a) for a in range(x.base + offset,
+                                                    x.base + offset + (num_elems * elem_size),
+                                                    elem_size)]
 
     def gen_bitfield_prop(self, offset, field_size, bit_position, bit_length):
         """
@@ -88,8 +105,8 @@ class AttributeGenerator():
 
         def read_bits(x):
             bits = read_fn(x.base + offset)
-            bits << bit_position
-            bits >> field_size - bit_length
+            bits = bits << bit_position
+            bits = bits >> field_size - bit_length
 
             return bits
 
@@ -119,12 +136,12 @@ class AttributeGenerator():
         """
         if size == 1:
             return self.backend.write_uint8
-        elif size == 2:
+        if size == 2:
             return self.backend.write_uint16
-        elif size == 8:
+        if size == 8:
             return self.backend.write_uint64
-        else:
-            return self.backend.write_uint32
+
+        return self.backend.write_uint32
 
     def gen_uint_setter(self, offset, size):
         """
@@ -145,18 +162,20 @@ class AttributeGenerator():
         """
         # This is only useful (with my limited creativity, anyway) if you want to set a
         # struct's member struct to be equal to that of a different, already-instantiated
-        # struct with a different base address. E.g., copy one tasks's thread_info to 
-        # another task. For this reason, we ignore the base address of newstruct and just 
+        # struct with a different base address. E.g., copy one tasks's thread_info to
+        # another task. For this reason, we ignore the base address of newstruct and just
         # copy its members, one by one, into memory at the correct offset.
         def write_struct(x, newstruct):
-            if not type(newstruct) == cls:
-                print("Cannot overwrite struct of type '%s' with type '%s'", (type(newstruct), str(cls)))
+            if not isinstance(newstruct) == cls:
+                print("Cannot overwrite struct of type '%s' with type '%s'",
+                      (type(newstruct), str(cls)))
                 return
 
             member_struct = cls(x.base + offset)
 
-            for field in newstruct.__dir__():
-                if not field.startswith('_') and not field.endswith('_offset') and field not in ('base', 'name'):
+            for field in newstruct.dir():
+                if not field.startswith('_') and not field.endswith('_offset') \
+                   and field not in ('base', 'name'):
                     setattr(member_struct, field, getattr(newstruct, field))
 
         return write_struct
@@ -171,17 +190,23 @@ class AttributeGenerator():
         write_fn = self._get_write_fn(elem_size)
 
         def write_list(x, val):
-            i = 0;
+            i = 0
 
-            for addr in range(x.base + offset, x.base + offset + (num_elems * elem_size), elem_size):
+            for addr in range(x.base + offset, x.base + offset +
+                              (num_elems * elem_size), elem_size):
                 if i < len(val):
                     write_fn(addr, val[i])
 
                 i += 1
-                
+
         return write_list
 
     def gen_bitfield_setter(self, offset, field_size, bit_position, bit_length):
+        """Generates a class property setter to write a bitfield
+
+        :returns: The setter function
+        :rtype: function
+        """
         read_fn = self._get_read_fn(field_size)
         write_fn = self._get_write_fn(field_size)
 
@@ -199,7 +224,7 @@ class AttributeGenerator():
             bits = bits & mask
 
             # Shift val into the correct bit position
-            val << bit_position
+            val = val << bit_position
 
             # Set the bits with val
             bits = bits | val
@@ -264,6 +289,7 @@ def _gen_struct_constructor():
 
     return struct_constructor
 
+# pylint: disable=too-many-locals
 def _gen_attributes(cls, backend, d2json, class_type_map):
     """
     Generates all of the member attributes for a kernel struct class. Each attribute
@@ -279,19 +305,19 @@ def _gen_attributes(cls, backend, d2json, class_type_map):
 
         attr_list.append((field, field_type))
 
-        # Generate the appropriate getter for the data type. If the type is a union 
+        # Generate the appropriate getter for the data type. If the type is a union
         # or a struct, this will create an instance of the class for the kernel data
-        # structure by looking up the class from the class map generated by the class 
-        # auto-generation process. Otherwise, the getter will invoke GDB to read 
-        # memory and return the value read in the format most intuitive for the data 
-        # type. Note that memory is read each time the attribute is accessed. Further 
-        # note that arrays are represented as lists, regardless of whether they are 
-        # char arrays (because char does not always *really* represent a character). 
-        # If you want to interpret an array of characters as a string, you will need 
+        # structure by looking up the class from the class map generated by the class
+        # auto-generation process. Otherwise, the getter will invoke GDB to read
+        # memory and return the value read in the format most intuitive for the data
+        # type. Note that memory is read each time the attribute is accessed. Further
+        # note that arrays are represented as lists, regardless of whether they are
+        # char arrays (because char does not always *really* represent a character).
+        # If you want to interpret an array of characters as a string, you will need
         # to convert it. A helper function for this is provided in state.helpers.
         if field_type in basic_types:
             size = d2json.get_base_type_size(d2json.get_base_type_name(attributes))
-            setattr(cls, field, 
+            setattr(cls, field,
                     property(attribute_generator.gen_uint_prop(offset, size),
                              attribute_generator.gen_uint_setter(offset, size)))
         elif field_type in class_types:
@@ -302,22 +328,24 @@ def _gen_attributes(cls, backend, d2json, class_type_map):
         elif field_type in array_types:
             num_elems = d2json.get_array_count(attributes)
             elem_size = d2json.get_base_type_size(d2json.get_array_type(attributes))
-            setattr(cls, field, 
+            setattr(cls, field,
                     property(attribute_generator.gen_list_prop(offset, elem_size, num_elems),
                              attribute_generator.gen_list_setter(offset, elem_size, num_elems)))
         elif field_type == 'bitfield':
             # XXX IN PROGRESS
             base_type, bit_position, bit_length = d2json.get_bitfield_info(attributes)
             field_size = d2json.get_base_type_size(base_type)
-            setattr(cls, field, 
-                    property(attribute_generator.gen_bitfield_prop(offset, field_size, bit_position, bit_length),
-                             attribute_generator.gen_bitfield_setter(offset, field_size, bit_position, bit_length)))
+            setattr(cls, field,
+                    property(attribute_generator.gen_bitfield_prop(offset, field_size,
+                                                                   bit_position, bit_length),
+                             attribute_generator.gen_bitfield_setter(offset, field_size,
+                                                                     bit_position, bit_length)))
         else:
             setattr(cls, field,
                     property(attribute_generator.gen_null_prop(),
                              attribute_generator.gen_null_setter()))
 
-        setattr(cls, "{}_offset".format(field), offset)
+        setattr(cls, f"{field}_offset", offset)
         setattr(cls, "__str__", _gen_str_method(attr_list))
 
 def _name_to_camel(name):
@@ -331,7 +359,7 @@ def _name_to_camel(name):
     return ''.join(x for x in name.replace('_', ' ').title() if not x.isspace() or x == '_')
 
 
-# Auto-generate the kernel struct classes. The way this works is that for each struct 
+# Auto-generate the kernel struct classes. The way this works is that for each struct
 # or union encountered in the volatility JSON file (parsed by config.kernel), we create
 # a class. That class auto-populates itself with attributes according to the fields
 # that the JSON file specifies the struct as having. See _gen_struct_constructor and
