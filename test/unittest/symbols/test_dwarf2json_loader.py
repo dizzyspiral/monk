@@ -21,7 +21,7 @@ class TestDwarf2jsonLoader(unittest.TestCase):
         )
     def test_constructor(self, mock_file):
         d = Dwarf2JsonLoader("test/path")
-        mock_file.assert_called_with("test/path")
+        mock_file.assert_called_with("test/path", encoding='utf-8')
         j = d._json
         self.assertEqual(type(j), dict)
         self.assertEqual(j["k1"], "val1")
@@ -37,7 +37,7 @@ class TestDwarf2jsonLoader(unittest.TestCase):
     def test_load_json(self, mock_file):
         j = Dwarf2JsonLoader._load_json(None, "test/path")
         # load_json attempts to open the correct file path
-        mock_file.assert_called_with("test/path")
+        mock_file.assert_called_with("test/path", encoding='utf-8')
         # load_json produces the expected dict
         self.assertEqual(type(j), dict)
         self.assertEqual(j["k1"], "val1")

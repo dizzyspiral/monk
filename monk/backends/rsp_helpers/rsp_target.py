@@ -288,7 +288,7 @@ class RspTarget():
             raise_err = True
 
         if raise_err:
-            raise RspTargetError("Failed to write register '{regname}': register unknown")
+            raise RspTargetError(f"Failed to write register '{regname}': register unknown")
 
         with self._rsp_lock:
             self._rsp.send(b'P%s=%s' % (hexbyte(regnum), hexbyte(val)))
@@ -296,7 +296,7 @@ class RspTarget():
 
         if not b'OK' in response:
             raise RspTargetError(f"Failed to write register '{regname}' with value "
-                                 "{hex(val)}: target error")
+                                 f"{hex(val)}: target error")
 
     def read_memory(self, addr, size):
         """

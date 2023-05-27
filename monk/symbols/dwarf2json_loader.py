@@ -35,7 +35,7 @@ class Dwarf2JsonLoader:
         :rtype: map
         :returns: the JSON loaded into a map
         """
-        with open(jsonfile) as f:
+        with open(jsonfile, encoding='utf-8') as f:
             s = f.read()
             j = json.loads(s)
 

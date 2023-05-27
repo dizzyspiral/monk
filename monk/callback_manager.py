@@ -47,7 +47,7 @@ class CallbackManager():
 
     def on_read(self, addr, callback):
         """
-        Add a callback that runs whe address addr is read
+        Add a callback that runs when address addr is read
 
         :param int addr: the address
         :param function callback: the callback
