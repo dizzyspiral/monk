@@ -19,6 +19,7 @@ class OnProcessScheduled(Callback):
         self.install()
 
     def install(self):
+        print("OnProcessScheduled install()")
         self.add_hook("__switch_to", self._on_switch_to)
 
     def _on_switch_to(self):
@@ -46,11 +47,14 @@ class OnProcessExecute(Callback):
             # addr_limit is the highest userspace address a process can access; if it's 0,
             # then this is a kernel process. If not, then it's a userspace process.
             if t.addr_limit > 0x0:
+                print("Setting BP for user process")
                 saved_pc = get_user_regs(self.target, sp=t.cpu_context.sp)[UREGS_PC]
             else:
+                print("Setting BP for kernel process")
                 saved_regs = get_kernel_regs(self.target)
                 saved_pc = saved_regs.pc
 
+            print(f"Setting BP for pc = {hex(saved_pc)}")
             self._cb_proc_exec = self.add_hook(saved_pc, self._on_proc_exec)
 
     def _on_proc_exec(self):

@@ -11,7 +11,7 @@ import logging
 from monk.backends.rsp_helpers.gdbrsp import GdbRsp
 from monk.utils.helpers import hexbyte, byte_order_int, hexaddr, hexval
 
-SMALL_DELAY = 0.0001
+SMALL_DELAY = 0.000000000000001
 
 
 class RspTargetError(Exception):
@@ -136,6 +136,14 @@ class RspTarget():
             if self._shutdown_flag:
                 return
 
+            # Check quick to see if there are any stop events before grabbing the event lock.
+            # I thought this would improve performance of the main thread, but it doesn't...
+            if self._rsp.stop_queue.empty():
+                # This executes MUCH more often than the mystery quarter-second delay in the
+                # main loop. CURIOUS.
+                sleep(SMALL_DELAY)
+                continue
+
             self._event_lock.acquire()
             try:
                 # This timeout must be kept short in order to avoid delaying other functions which
@@ -167,8 +175,8 @@ class RspTarget():
             logging.getLogger(__name__).debug(f"stop reason = {bp_type}")
 
             logging.getLogger(__name__).debug("determining event handler...")
+
             # Call the appropriate event handler for the type of breakpoint encountered.
-            # The event handlers are overridden by control.hooks
             if bp_type == StopReasons.swbreak:
                 logging.getLogger(__name__).debug("getting pc...")
                 addr = self.read_register('pc')
@@ -366,7 +374,6 @@ class RspTarget():
         """
         Ensures that at the time the event lock is acquired, the stop queue is empty
         """
-
         self._event_lock.acquire()
 
         while not self._rsp.stop_queue.empty():
@@ -380,6 +387,7 @@ class RspTarget():
         if not self._guard_execution("step"):
             return
 
+        logging.getLogger(__name__).debug("cmd_step started")
         is_main_thread = threading.get_ident() == self._main_thread_id
 
         # Make sure the event loop isn't executing - there's a slight race condition between

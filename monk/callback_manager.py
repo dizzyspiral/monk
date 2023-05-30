@@ -98,7 +98,7 @@ class CallbackManager():
             fail = True
 
         if fail:
-            raise MonkControlError("callback kind '{kind}' not recognized")
+            raise MonkControlError(f"callback kind '{kind}' not recognized")
 
         try:
             cb_registry[addr].remove(callback)
@@ -190,7 +190,7 @@ class CallbackManager():
         self._callback_handler(self._on_access_callbacks[addr])
 
     def _on_execute_dispatcher(self, addr):
-        logging.getLogger(__name__).debug("_on_execute_dispatcher({hex(addr)})")
+        logging.getLogger(__name__).debug(f"_on_execute_dispatcher({hex(addr)})")
         self._callback_handler(self._on_execute_callbacks[addr])
 
     def _callback_handler(self, callbacks):
@@ -212,6 +212,9 @@ class CallbackManager():
         # in accidentally reading some breakpoint opcodes instead of the actual memory at that
         # address. However, we have to set the breakpoints that got cleared again before
         # re-starting the target, otherwise they're just gone, and all of our hooks are broken.
-        for addr in self._on_execute_callbacks.keys():
-            if len(self._on_execute_callbacks[addr]) > 0:
-                self._set_breakpoint(EVENT_EXECUTE, addr)
+        # XXX: This is broken for cmd_step, which directly calls on_execute to force execution
+        # of any hooks for the address it stepped to. The stepped address never was a breakpoint,
+        # and shouldn't become a breakpoint.
+        #for addr in self._on_execute_callbacks.keys():
+        #    if len(self._on_execute_callbacks[addr]) > 0:
+        #        self._set_breakpoint(EVENT_EXECUTE, addr)

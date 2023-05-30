@@ -3,73 +3,51 @@ import time
 from time import sleep
 import logging
 
-import monk  # Import this first to initialize everything
-monk.init("%s%sconfig.json" % (os.path.expanduser(os.getcwd()), os.sep))
-import monk.memory.memreader as memreader
-import monk.forensics as forensics
-import monk.execution.control as control
-import monk.execution.hooks as hooks
-from monk.symbols.uregs.arm import *
-from monk.symbols.structs import *
-from monk.utils.helpers import as_string
-from monk.symbols.lookup import lookup
+from monk_plugins.linux.callbacks import OnProcessScheduled, OnProcessExecute
+from monk_plugins.linux.forensics import get_proc_name
 
 
-_shutdown_flag = False
+class SaveProcNameOnSched(OnProcessScheduled):
+    def __init__(self, target):
+        self.cur_proc_name = None
+        super().__init__(target)
+
+    def run(self):
+        self.cur_proc_name = get_proc_name(self.target, thread=self.target.get_reg('r2'))
 
 
-proc_name = None
-def cb_save_procname():
-    global proc_name
-    next_thread = memreader.get_reg('r2')
-    proc_name = forensics.linux.get_proc_name(thread=next_thread)
-    print(f"cb_save_procname: {proc_name}, {hex(memreader.get_reg('pc'))}")
+class SignalOnProcExec(OnProcessExecute):
+    def __init__(self, target, proc_name):
+        self.signal = False
+        super().__init__(target, proc_name)
 
-signal = False
-def cb_on_exec():
-    global signal
-    print(f"on_exec: pc = {hex(memreader.get_reg('pc'))}, proc_name = {proc_name}")
-    control.stop()
-    signal = True
+    def run(self):
+        self.target.stop()
+        self.signal = True
 
-# Turn this into a helper function somehow... wrap signal in a class w/ convenience methods?
-def wait_for_signal():
-    """
-    Blocks waiting until the global signal flag is set. This flag is set by the 
-    OnProcessExecute callback for the traced process.
-    """
-    global signal
 
-    while not signal:
-        sleep(1)
-
-    signal = False
-
-def trace_process(proc_name):
+def trace_process(target, proc_name):
     """
     Trace a process by name. Synchronous function - will block execution of the 
     caller. Must be called by main thread (because it controls execution)
 
+    :param Monk target: the target to trace the process on
     :param string proc_name: the name of the process to trace
     """
-    h1 = hooks.OnProcessScheduled(callback=cb_save_procname)
-    h2 = hooks.OnProcessExecute(proc_name, callback=cb_on_exec)
+    cb_proc_name = SaveProcNameOnSched(target)
+    cb_signal_exec = SignalOnProcExec(target, proc_name)
 
-    control.run()
-    # Do we actually need to "wait for signal" or can we just block waiting for the process
-    # name to change?
-    wait_for_signal()
+    target.run()
+
+    while not cb_signal_exec.signal:
+        sleep(0.001)
 
     print("Finished waiting for signal")
 
-    f = open('trace.txt', 'w+')
+    with open('trace.txt', 'w+') as f:
+        while cb_proc_name.cur_proc_name == proc_name:
+            f.write(f"{hex(target.get_reg('pc'))}\n")
+            f.flush()  # In case we ctrl+c, contents will still be written out
+            target.step()
 
-    while proc_name == proc_name:
-        f.write(f"{hex(memreader.get_reg('pc'))}\n")
-        f.flush()  # In case we ctrl+c, contents will still be written out
-        control.step()
-
-    control.shutdown()
-
-if __name__ == '__main__':
-    trace_process('sh')
+    target.shutdown()

@@ -142,7 +142,7 @@ class Callback:
 
         if not symbol:
             raise MonkCallbackError(f"Unable to set hook for symbol '{symbol}',"
-                                    "cannot resolve address")
+                                    f" cannot resolve address ({self.__class__})")
 
         logging.getLogger(__name__).debug("Adding callback")
         bp = self.target.on_execute(addr, callback)
